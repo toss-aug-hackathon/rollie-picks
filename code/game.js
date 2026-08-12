@@ -9,6 +9,7 @@ const FLOOR_Y = 2350;
 const COURSE_HEIGHT = 2800;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
+const ROLL_SPEED = 1.3;
 const WALL_Z = -5;
 const GRIP_Z = WALL_Z + 10;
 const RACER_GAP_X = 78;
@@ -164,16 +165,6 @@ function showComment(offset = 0) {
   commentIndex = (commentIndex + offset + resultComments.length) % resultComments.length;
   resultCopy.textContent = resultComments[commentIndex];
   gsap.fromTo(resultCopy, { x: offset * 10, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 * motionScale });
-}
-
-function revealText(element) {
-  const words = element.textContent.split(' ');
-  element.replaceChildren(...words.map((word, index) => {
-    const span = document.createElement('span');
-    span.textContent = word + (index < words.length - 1 ? ' ' : '');
-    return span;
-  }));
-  gsap.fromTo(element.children, { opacity: 0.12 }, { opacity: 1, stagger: 0.035, duration: 0.35 * motionScale });
 }
 
 function buzz(pattern) {
@@ -1759,7 +1750,7 @@ function syncVisuals(dt) {
         recoverStalledRacer(racer);
       }
       const shakeBoosted = performance.now() < shakeBoostUntil;
-      const speed = shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1;
+      const speed = ROLL_SPEED * (shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
       racer.gripElapsed += dt * speed;
       const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
       const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
@@ -1768,7 +1759,7 @@ function syncVisuals(dt) {
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
         const slowedByWater = isWater(position.x, position.y);
-        const rollingSpeed = (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
+        const rollingSpeed = ROLL_SPEED * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
         if (knockedBack) {
           racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
         } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
@@ -1828,7 +1819,7 @@ function finishRace(racer) {
   resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
   resultCharacterImage.src = characterPreviews[racer.characterKey];
   resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
-  resultSpeech.textContent = `내가 고른 건\n${racer.label.textContent}이야!`;
+  resultSpeech.textContent = `내 선택은 이거야!\n${racer.label.textContent}`;
   const comments = ['데굴이가 하나를 골랐어요.', '고민 끝! 이걸로 가볼까요?', '가장 먼저 내려온 데굴이의 선택이에요.'];
   resultComments = comments;
   commentIndex = Math.floor(Math.random() * comments.length);
@@ -1913,7 +1904,7 @@ async function boot() {
   setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
   gsap.from('#setup-form', { opacity: 0, duration: 0.5 * motionScale, ease: 'power2.out' });
   gsap.from('.hero-title img', { scale: 0.8, opacity: 0.2, duration: 0.8 * motionScale, ease: 'back.out(1.6)' });
-  revealText(setupDescription);
+  gsap.fromTo(setupDescription, { opacity: 0.12 }, { opacity: 1, duration: 0.35 * motionScale });
   if (motionScale) gsap.to('.story-marquee-track', { xPercent: -50, duration: 22, repeat: -1, ease: 'none' });
 
   let previous = performance.now();
