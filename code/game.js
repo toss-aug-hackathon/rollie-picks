@@ -43,6 +43,7 @@ const START_PADS = [[0, 1, 2, 3], [1, 0, 3, 2], [0, 1, 2, 3], [1, 0, 3, 2]];
 
 const game = document.querySelector('#game');
 const guide = document.querySelector('#guide');
+const raceQuestion = document.querySelector('#race-question');
 const status = document.querySelector('#status');
 const raceTimer = document.querySelector('#race-timer');
 const raceStart = document.querySelector('#race-start');
@@ -1056,111 +1057,52 @@ function makeWall() {
   // ------------------------------------------------------------
   // Start line
   // ------------------------------------------------------------
-  ctx.save();
+  ctx.clearRect(0, 0, WIDTH, COURSE_HEIGHT);
+  const markerWidth = WIDTH - 36;
+  const markerX = (WIDTH - markerWidth) / 2;
 
-  ctx.strokeStyle = '#e27055';
-  ctx.lineWidth = 5;
+  ctx.textAlign = 'center';
+  ctx.font = '800 15px Jua, system-ui';
   ctx.lineCap = 'round';
 
+  ctx.fillStyle = 'rgba(255, 238, 166, 0.9)';
+  ctx.strokeStyle = 'rgba(64, 83, 68, 0.85)';
+  ctx.lineWidth = 3;
   ctx.beginPath();
-
-  ctx.moveTo(
-    18,
-    START_LINE_Y
-  );
-
-  ctx.lineTo(
-    WIDTH - 18,
-    START_LINE_Y
-  );
-
+  ctx.roundRect(WIDTH / 2 - 27, START_LINE_Y - 34, 54, 23, 8);
+  ctx.fill();
   ctx.stroke();
+  ctx.fillStyle = '#405344';
+  ctx.fillText('출발', WIDTH / 2, START_LINE_Y - 17);
 
+  ctx.save();
+  ctx.strokeStyle = 'rgba(64, 83, 68, 0.75)';
+  ctx.lineWidth = 11;
+  ctx.beginPath();
+  ctx.moveTo(markerX, START_LINE_Y);
+  ctx.lineTo(markerX + markerWidth, START_LINE_Y);
+  ctx.stroke();
+  ctx.strokeStyle = '#f6cf62';
+  ctx.lineWidth = 5;
+  ctx.setLineDash([13, 9]);
+  ctx.stroke();
   ctx.restore();
 
   // ------------------------------------------------------------
   // Finish line
   // ------------------------------------------------------------
-  const finishX = 20;
-  const finishWidth = 350;
-  const finishCell = 20;
-
-  for (
-    let x = finishX;
-    x < finishX + finishWidth;
-    x += finishCell
-  ) {
-    const index =
-      Math.floor(
-        (x - finishX)
-        / finishCell
-      );
-
-    ctx.fillStyle =
-      index % 2 === 0
-        ? '#31594c'
-        : '#f8ecc5';
-
-    ctx.fillRect(
-      x,
-      FLOOR_Y - 5,
-      finishCell,
-      10
-    );
+  const finishCell = markerWidth / 12;
+  for (let row = 0; row < 2; row += 1) {
+    for (let column = 0; column < 12; column += 1) {
+      ctx.fillStyle = (row + column) % 2 ? '#f8e6aa' : '#405344';
+      ctx.fillRect(markerX + column * finishCell, FLOOR_Y - 8 + row * 8, finishCell, 8);
+    }
   }
-
-  ctx.fillStyle = colors.text;
-
-  ctx.font =
-    '800 17px Outfit, system-ui';
-
-  ctx.textAlign = 'center';
-
-  ctx.fillText(
-    '오늘의 선택을 확인해 보세요',
-    WIDTH / 2,
-    FLOOR_Y - 22
-  );
-
-  // ------------------------------------------------------------
-  // Soft vignette
-  // ------------------------------------------------------------
-  const sideShade =
-    ctx.createLinearGradient(
-      0,
-      0,
-      WIDTH,
-      0
-    );
-
-  sideShade.addColorStop(
-    0,
-    'rgba(32, 92, 72, 0.08)'
-  );
-
-  sideShade.addColorStop(
-    0.12,
-    'rgba(32, 92, 72, 0)'
-  );
-
-  sideShade.addColorStop(
-    0.88,
-    'rgba(32, 92, 72, 0)'
-  );
-
-  sideShade.addColorStop(
-    1,
-    'rgba(32, 92, 72, 0.08)'
-  );
-
-  ctx.fillStyle = sideShade;
-
-  ctx.fillRect(
-    0,
-    0,
-    WIDTH,
-    COURSE_HEIGHT
-  );
+  ctx.strokeStyle = 'rgba(64, 83, 68, 0.85)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(markerX, FLOOR_Y - 8, markerWidth, 16);
+  ctx.fillStyle = '#405344';
+  ctx.fillText('도착', WIDTH / 2, FLOOR_Y - 18);
 
   // ------------------------------------------------------------
   // Three.js texture
@@ -1201,7 +1143,19 @@ function makeWall() {
 
   wall.renderOrder = -100;
 
-  scene.add(wall);
+  const markers = new THREE.Mesh(
+    new THREE.PlaneGeometry(WIDTH, canvas.height),
+    new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(canvas),
+      transparent: true,
+      depthTest: true,
+      depthWrite: false
+    })
+  );
+  markers.position.set(0, wall.position.y, WALL_Z - 2);
+  markers.renderOrder = -99;
+
+  scene.add(wall, markers);
 }
 
 function clearMountains() {
@@ -1667,7 +1621,7 @@ function resetRace() {
   });
   status.textContent = '준비';
   raceTimer.textContent = '00:00.00';
-  guide.textContent = '캐릭터 위치를 정한 뒤 선택 시작';
+  guide.textContent = '캐릭터 위치를 정한 뒤 데굴이 출발';
   guide.disabled = false;
   guide.hidden = false;
 }
@@ -1857,7 +1811,7 @@ function syncVisuals(dt) {
     const seconds = Math.floor(raceElapsed % 60);
     const hundredths = Math.floor(raceElapsed * 100) % 100;
     raceTimer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
-    status.textContent = performance.now() < shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `선택 중 ${progress}%`;
+    status.textContent = performance.now() < shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `데굴 중 ${progress}%`;
     if (raceElapsed >= RACE_LIMIT && !finished) {
       const choice = racers.filter((racer) => racer.active)
         .reduce((selected, racer) => racer.body.translation().y < selected.body.translation().y ? racer : selected);
@@ -1869,18 +1823,18 @@ function syncVisuals(dt) {
 function finishRace(racer) {
   finished = true;
   running = false;
-  status.textContent = '결정 완료';
+  status.textContent = '선택 완료';
   guide.hidden = true;
-  resultTitle.textContent = `“${decisionQuestion.value.trim()}”의 답`;
+  resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
   resultCharacterImage.src = characterPreviews[racer.characterKey];
   resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
-  resultSpeech.textContent = `오늘의 선택은\n${racer.label.textContent}이야!`;
-  const comments = ['오늘의 선택을 확인해 보세요.', '고민 끝. 하나를 골랐습니다.', '느린 중력이 대신 골라주었습니다.'];
+  resultSpeech.textContent = `내가 고른 건\n${racer.label.textContent}이야!`;
+  const comments = ['데굴이가 하나를 골랐어요.', '고민 끝! 이걸로 가볼까요?', '가장 먼저 내려온 데굴이의 선택이에요.'];
   resultComments = comments;
   commentIndex = Math.floor(Math.random() * comments.length);
   showComment();
   const row = document.createElement('li');
-  row.textContent = `결정: ${racer.label.textContent}`;
+  row.textContent = `데굴이의 선택: ${racer.label.textContent}`;
   resultList.replaceChildren(row);
   showOverlay(result);
   gsap.from('.result-character', { y: 16, opacity: 0, scale: 0.94, duration: 0.45 * motionScale, delay: 0.12 * motionScale, ease: 'back.out(1.8)' });
@@ -1907,7 +1861,7 @@ async function startRace() {
   signalLights.forEach((light) => light.className = '');
   for (let count = 3; count > 0; count -= 1) {
     startCount.textContent = `${count}`;
-    startCaption.textContent = '고르는 중';
+    startCaption.textContent = '데굴 준비 중';
     signalLights[3 - count].className = 'on';
     gsap.fromTo('.start-board', { scale: 0.78, rotation: -2 }, { scale: 1, rotation: 0, duration: 0.38 * motionScale, ease: 'back.out(2)' });
     gsap.fromTo(startCount, { scale: 1.55, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 * motionScale, ease: 'power3.out' });
@@ -1916,8 +1870,8 @@ async function startRace() {
     await wait(700);
   }
   signalLights.forEach((light) => light.className = 'go');
-  startCount.textContent = '선택!';
-  startCaption.textContent = '결정은 중력에게';
+  startCount.textContent = '출발!';
+  startCaption.textContent = '데굴데굴 골라줘';
   gsap.fromTo(startCount, { scale: 0.65 }, { scale: 1.08, duration: 0.32 * motionScale, ease: 'back.out(2.4)' });
   gsap.fromTo(game, { x: -5 }, { x: 0, duration: 0.08, repeat: 5, yoyo: true, clearProps: 'x' });
   tone(820, 0.3);
@@ -1956,7 +1910,7 @@ async function boot() {
   syncCharacterOptions();
   resize();
   setupSubmit.disabled = false;
-  setupSubmit.textContent = '중력에게 결정 맡기기';
+  setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
   gsap.from('#setup-form', { opacity: 0, duration: 0.5 * motionScale, ease: 'power2.out' });
   gsap.from('.hero-title img', { scale: 0.8, opacity: 0.2, duration: 0.8 * motionScale, ease: 'back.out(1.6)' });
   revealText(setupDescription);
@@ -2034,6 +1988,7 @@ setupForm.addEventListener('submit', (event) => {
   soundEnabled = document.querySelector('#sound-toggle').checked;
   hapticEnabled = document.querySelector('#haptic-toggle').checked;
   const characterKeys = participants.map(({ character }) => character);
+  raceQuestion.textContent = decisionQuestion.value.trim();
   setParticipants(names, characterKeys);
   hideOverlay(setup);
   tone(420);
