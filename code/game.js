@@ -1149,10 +1149,9 @@ function makeWall() {
   // ------------------------------------------------------------
   // Three.js texture
   // ------------------------------------------------------------
-  const texture =
-    new THREE.CanvasTexture(
-      canvas
-    );
+  const texture = new THREE.TextureLoader().load(
+    new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href
+  );
 
   texture.colorSpace =
     THREE.SRGBColorSpace;
@@ -1166,7 +1165,7 @@ function makeWall() {
   const wall =
     new THREE.Mesh(
       new THREE.PlaneGeometry(
-        WIDTH,
+        WIDTH * 2,
         canvas.height
       ),
       new THREE.MeshBasicMaterial({
