@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>찰싹 결정</title>
+  <title>데굴이가 골라줘</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
     :root { color-scheme: light; --ink: #183b32; --forest: #245444; --moss: #89a778; --cream: #fbf5df; --paper: #f3e9c9; --carrot: #df7040; --sun: #f0c667; }
@@ -48,8 +48,8 @@
     #name-fields input { padding: 12px 11px 7px; }
     #name-fields select { display: none; }
     .mini-character-picker { height: 106px; display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; gap: 2px; padding: 4px; border-top: 2px solid var(--ink); background: var(--paper); }
-    .mini-character-picker button { width: 28px; height: 42px; padding: 0; border: 2px solid var(--ink); border-radius: 5px; color: var(--cream); background: var(--carrot); box-shadow: 2px 2px 0 var(--ink); font-size: 20px; }
-    .mini-character-preview { min-width: 0; height: 96px; display: grid; place-items: center; grid-template-rows: 74px 18px; font-size: 12px; }
+    .mini-character-picker button { width: 28px; height: 42px; padding: 0; border: 0; color: var(--ink); background: transparent; box-shadow: none; font-size: 28px; }
+    .mini-character-preview { min-width: 0; height: 96px; display: grid; place-items: center; grid-template-rows: 74px 18px; font-size: 12px; touch-action: pan-y; cursor: grab; }
     .mini-character-preview img { width: 100%; height: 74px; object-fit: contain; }
     .mini-character-picker[aria-disabled="true"] { opacity: .35; }
     #name-fields select option:disabled { color: #aaa; }
@@ -123,17 +123,17 @@
   </style>
 </head>
 <body>
-  <main id="game" data-mode="choice" aria-label="찰싹 결정 선택 도우미">
-    <div id="hud"><span>찰싹 결정</span><span id="status">준비</span><span id="race-timer">00:00.00</span></div>
+  <main id="game" data-mode="choice" aria-label="데굴이가 골라줘 선택 도우미">
+    <div id="hud"><span>데굴이가 골라줘</span><span id="status">준비</span><span id="race-timer">00:00.00</span></div>
     <button id="guide" type="button">선택 결과 확인하기</button>
     <div id="race-start" aria-live="assertive" hidden><div class="start-board"><div class="signal-lights" aria-hidden="true"><i></i><i></i><i></i></div><div id="start-count">3</div><div id="start-caption">선택 준비</div></div></div>
     <div id="error">서비스를 불러오지 못했어요.<br />화면을 새로고침해 주세요.</div>
     <section id="setup" class="overlay" aria-labelledby="setup-title">
       <form id="setup-form" class="setup-page">
-        <div class="story-marquee" aria-hidden="true"><div class="story-marquee-track"><span>고민될 땐 하나만 찰싹</span><span>선택이 필요할 때 가볍게 결정</span><span>고민될 땐 하나만 찰싹</span><span>선택이 필요할 때 가볍게 결정</span></div></div>
+        <div class="story-marquee" aria-hidden="true"><div class="story-marquee-track"><span>고민될 땐 데굴이에게</span><span>선택이 필요할 때 가볍게 결정</span><span>고민될 땐 데굴이에게</span><span>선택이 필요할 때 가볍게 결정</span></div></div>
         <div class="turtle-mark" aria-hidden="true"></div>
-        <h1 id="setup-title" class="hero-title"><span>고민은 가볍게</span><span>하나는 찰싹 선택 <img src="./assets/characters/rabbit.png" alt="" /></span></h1>
-        <p id="setup-description">고민되는 선택지를 적어주세요. 느린 중력이 결말을 정합니다.</p>
+        <h1 id="setup-title" class="hero-title"><span>고민은 가볍게</span><span>데굴이가 골라줘 <img src="./assets/characters/rabbit.png" alt="" /></span></h1>
+        <p id="setup-description">고민되는 선택지를 적어주세요. 데굴이들이 결말을 정합니다.</p>
         <input id="decision-question" maxlength="30" placeholder="무엇을 결정할까요?" aria-label="결정할 질문" required />
         <div id="name-fields">
           <div class="participant"><input name="name" maxlength="10" placeholder="1번째 선택지" aria-label="1번째 선택지" required /><select name="character" aria-label="첫 번째 캐릭터"></select><div class="mini-character-picker" aria-label="첫 번째 캐릭터 선택"><button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button><div class="mini-character-preview"><img alt="" /><span>곰</span></div><button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button></div></div>
