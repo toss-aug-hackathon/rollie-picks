@@ -161,7 +161,7 @@
     #setup .mini-character-preview { position: absolute; top: 3px; left: 50%; width: 112px; height: 118px; display: grid; place-items: center; grid-template-rows: 88px 22px; row-gap: 6px; transform: translateX(-50%); font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
     #setup .mini-character-preview img { width: 112px; max-width: none; height: 88px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
     #setup .mini-character-preview span { position: relative; z-index: 2; width: max-content; max-width: 112px; padding: 2px 6px; overflow: visible; border: 2px solid var(--setup-ink); border-radius: 999px; background: #fff; font-size: 11px; line-height: 16px; white-space: nowrap; }
-    #setup .character-step { position: relative; top: -8px; z-index: 3; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-size: 28px; font-weight: 900; line-height: 1; }
+    #setup .character-step { position: relative; top: -8px; z-index: 3; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-family: Arial, sans-serif; font-size: 36px; font-weight: 700; line-height: 1; }
     #setup .character-step,
     #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
     #setup .character-step:active,
@@ -210,36 +210,36 @@
             <input name="name" maxlength="10" placeholder="1번째 선택지" aria-label="1번째 선택지" required />
             <select name="character" aria-label="첫 번째 캐릭터"></select>
             <div class="mini-character-picker" aria-label="첫 번째 캐릭터 선택">
-              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">&lt;</button>
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
               <div class="mini-character-preview"><img alt="" /><span>곰</span></div>
-              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">&gt;</button>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
             </div>
           </div>
           <div class="participant setup-card setup-card--rose">
             <input name="name" maxlength="10" placeholder="2번째 선택지" aria-label="2번째 선택지" required />
             <select name="character" aria-label="두 번째 캐릭터"></select>
             <div class="mini-character-picker" aria-label="두 번째 캐릭터 선택">
-              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">&lt;</button>
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
               <div class="mini-character-preview"><img alt="" /><span>토끼</span></div>
-              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">&gt;</button>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
             </div>
           </div>
           <div class="participant setup-card setup-card--indigo">
             <input name="name" maxlength="10" placeholder="3번째 선택지 (선택)" aria-label="3번째 선택지" />
             <select name="character" aria-label="세 번째 캐릭터"></select>
             <div class="mini-character-picker" aria-label="세 번째 캐릭터 선택">
-              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">&lt;</button>
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
               <div class="mini-character-preview"><img alt="" /><span>고양이</span></div>
-              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">&gt;</button>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
             </div>
           </div>
           <div class="participant setup-card setup-card--sky">
             <input name="name" maxlength="10" placeholder="4번째 선택지 (선택)" aria-label="4번째 선택지" />
             <select name="character" aria-label="네 번째 캐릭터"></select>
             <div class="mini-character-picker" aria-label="네 번째 캐릭터 선택">
-              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">&lt;</button>
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
               <div class="mini-character-preview"><img alt="" /><span>오리</span></div>
-              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">&gt;</button>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
             </div>
           </div>
         </section>
