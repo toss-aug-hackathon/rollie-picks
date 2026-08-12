@@ -98,22 +98,88 @@
     #guide:active { transform: translateX(-50%) rotate(-1deg) translate(3px, 3px); box-shadow: 2px 2px 0 var(--ink); }
     .player-label { border: 2px solid var(--ink); border-radius: 5px; background: var(--paper); box-shadow: 2px 2px 0 var(--ink); font-family: inherit; }
     .overlay { background: #16804c99; }
-    #setup { display: block; padding: 0; overflow-x: hidden; overflow-y: auto; background: var(--cream); }
-    .setup-page { position: relative; width: 100%; min-height: 100%; display: flex; flex-direction: column; padding: max(22px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom)); color: var(--ink); background: var(--cream); }
-    .setup-page > p { margin: 0 0 18px; color: #4f6b60; line-height: 1.45; }
-    .setup-page .story-marquee { margin: calc(-1 * max(22px, env(safe-area-inset-top))) -22px 22px; }
-    .setup-page .settings { margin-top: auto; }
-    .card { padding: 22px; border: 4px solid var(--ink); border-radius: 9px; background: var(--cream); box-shadow: 8px 8px 0 var(--ink); transform: rotate(.35deg); }
-    .card::before, .card::after { display: none; }
-    .story-marquee { margin: -22px -22px 18px; border-bottom: 4px solid var(--ink); background: var(--carrot); font-family: inherit; letter-spacing: 0; }
-    .hero-title, .card h2 { font-family: inherit; line-height: 1.05; letter-spacing: 0; text-decoration: none; }
-    .hero-title img { border: 3px solid var(--ink); border-radius: 4px; background: #67ddeb; filter: saturate(1.2); transform: rotate(5deg); }
-    .turtle-mark { opacity: .32; }
-    .secondary { border: 3px solid var(--ink); border-radius: 7px; background: var(--paper); box-shadow: 3px 3px 0 var(--ink); }
-    #name-fields { gap: 3px; border: 3px solid var(--ink); border-radius: 7px; background: var(--ink); box-shadow: 4px 4px 0 var(--ink); }
-    #name-fields input { background: var(--cream); }
-    .settings { color: var(--ink); }
-    .primary { border: 3px solid var(--ink); border-radius: 7px; background: var(--carrot); box-shadow: 4px 4px 0 var(--ink); }
+    #setup {
+      --setup-ink: #18181b;
+      --setup-cream: #fff9e6;
+      --setup-orange: #f97316;
+      --setup-orange-dark: #ea580c;
+      display: block;
+      padding: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      color: var(--setup-ink);
+      background: var(--setup-cream);
+    }
+    #setup .setup-page {
+      position: relative;
+      width: 100%;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+      overflow: hidden;
+      font-family: "Noto Sans KR", Pretendard, system-ui, sans-serif;
+      background: var(--setup-cream);
+    }
+    #setup .setup-page::before,
+    #setup .setup-page::after {
+      position: absolute;
+      z-index: 0;
+      width: 58px;
+      height: 58px;
+      border: 3px solid var(--setup-ink);
+      pointer-events: none;
+      content: "";
+    }
+    #setup .setup-page::before { top: 80px; left: -31px; border-radius: 50%; background: #facc15; transform: rotate(24deg); }
+    #setup .setup-page::after { right: -25px; bottom: 98px; background: #7dd3fc; transform: rotate(36deg); }
+    #setup .setup-page > * { position: relative; z-index: 1; }
+    #setup .setup-topbar { position: absolute; inset: 0 0 auto; z-index: 2; height: 10px; background: repeating-linear-gradient(90deg, var(--setup-orange) 0 27px, #facc15 27px 54px, #fb7185 54px 81px, #818cf8 81px 108px); }
+    #setup .setup-card,
+    #setup #decision-question,
+    #setup #setup-submit { border: 3px solid var(--setup-ink); box-shadow: 4px 4px 0 var(--setup-ink); }
+    #setup .setup-header { margin: 14px auto 24px; text-align: center; }
+    #setup .brand-pill { display: inline-block; padding: 6px 11px; border: 2px solid var(--setup-ink); border-radius: 999px; background: #facc15; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 11px; font-weight: 900; letter-spacing: .16em; transform: rotate(-2deg); }
+    #setup #setup-title { margin: 16px 0 10px; font-size: clamp(30px, 8vw, 40px); font-weight: 950; line-height: 1.1; letter-spacing: -.08em; word-break: keep-all; }
+    #setup #setup-title em { color: var(--setup-orange-dark); font-style: normal; text-decoration: underline 4px #facc15; text-underline-offset: 4px; }
+    #setup #setup-description { margin: 0; color: #52525b; font-size: 14px; font-weight: 650; line-height: 1.55; word-break: keep-all; }
+    #setup .question-field { position: relative; margin: 0 0 20px; padding-top: 10px; }
+    #setup .question-field label { position: absolute; top: 0; left: 14px; z-index: 1; padding: 2px 8px; color: var(--setup-ink); background: #facc15; font-size: 12px; font-weight: 900; transform: rotate(-2deg); }
+    #setup #decision-question { display: none; width: 100%; padding: 17px 15px 13px; border-radius: 9px; color: var(--setup-ink); background: #fff; font-size: 16px; font-weight: 700; outline: none; }
+    #game[data-mode="choice"] #setup #decision-question { display: block; }
+    #setup #decision-question::placeholder { color: #a1a1aa; }
+    #setup #name-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    #game[data-mode="choice"] #setup #name-fields { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    #setup .participant { min-width: 0; display: grid; grid-template-rows: auto 1fr; padding: 0; border-radius: 10px; overflow: hidden; }
+    #setup .setup-card--yellow { background: #fde68a; }
+    #setup .setup-card--rose { background: #fecdd3; }
+    #setup .setup-card--indigo { background: #c7d2fe; }
+    #setup .setup-card--sky { background: #bae6fd; }
+    #setup #name-fields input,
+    #setup #name-fields select { min-width: 0; width: 100%; color: var(--setup-ink); outline: none; }
+    #setup #name-fields input { padding: 13px 10px 8px; border: 0; border-bottom: 3px solid var(--setup-ink); background: rgb(255 255 255 / 68%); font-size: 14px; font-weight: 800; }
+    #setup #name-fields select { display: none; }
+    #setup .mini-character-picker { min-height: 112px; display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; gap: 3px; padding: 6px; background: rgb(255 255 255 / 34%); }
+    #setup .mini-character-preview { min-width: 0; height: 98px; display: grid; place-items: center; grid-template-rows: 74px 18px; font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
+    #setup .mini-character-preview img { width: 100%; height: 74px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
+    #setup .character-step { width: 30px; height: 42px; padding: 0; border: 2px solid var(--setup-ink); border-radius: 6px; color: var(--setup-ink); background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 26px; line-height: 1; }
+    #setup .character-step,
+    #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
+    #setup .character-step:active,
+    #setup #setup-submit:active:not(:disabled) { transform: translateY(3px); box-shadow: 1px 1px 0 var(--setup-ink); }
+    #setup .mini-character-picker[aria-disabled="true"] { opacity: .35; }
+    #setup #name-fields select option:disabled { color: #a1a1aa; }
+    #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
+    #setup .settings { display: flex; justify-content: center; gap: 18px; margin: 20px 0 14px; color: var(--setup-ink); font-size: 14px; font-weight: 800; }
+    #setup .settings label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    #setup .settings input { appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid var(--setup-ink); border-radius: 4px; background: #fff; box-shadow: 2px 2px 0 var(--setup-ink); }
+    #setup .settings input:checked { background: var(--setup-orange); box-shadow: 2px 2px 0 var(--setup-ink), inset 0 0 0 4px #fff; }
+    #setup .setup-footer { margin-top: auto; padding-top: 10px; text-align: center; }
+    #setup #setup-submit { width: 100%; padding: 15px 12px; border-radius: 9px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
+    #setup #setup-submit:not(:disabled):hover { background: var(--setup-orange-dark); }
+    #setup #setup-submit:disabled { color: #71717a; background: #e4e4e7; cursor: not-allowed; }
+    #setup .setup-footer small { display: block; margin-top: 13px; color: #71717a; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
+    #setup :focus-visible { outline: 4px solid rgb(250 204 21 / 45%); outline-offset: 2px; }
     .feedback-carousel { border-block: 3px dashed var(--ink); }
     #result-list li { border: 3px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); font-family: inherit; }
     #result-list li:first-child { background: var(--carrot); }
@@ -131,23 +197,63 @@
     <div id="race-start" aria-live="assertive" hidden><div class="start-board"><div class="signal-lights" aria-hidden="true"><i></i><i></i><i></i></div><div id="start-count">3</div><div id="start-caption">선택 준비</div></div></div>
     <div id="error">서비스를 불러오지 못했어요.<br />화면을 새로고침해 주세요.</div>
     <section id="setup" class="overlay" aria-labelledby="setup-title">
+      <div class="setup-topbar" aria-hidden="true"></div>
       <form id="setup-form" class="setup-page">
-        <div class="story-marquee" aria-hidden="true"><div class="story-marquee-track"><span>고민될 땐 데굴이에게</span><span>선택이 필요할 때 가볍게 결정</span><span>고민될 땐 데굴이에게</span><span>선택이 필요할 때 가볍게 결정</span></div></div>
-        <div class="turtle-mark" aria-hidden="true"></div>
-        <h1 id="setup-title" class="hero-title"><span>고민은 가볍게</span><span>데굴이가 골라줘 <img src="./assets/characters/rabbit.png" alt="" /></span></h1>
-        <p id="setup-description">고민되는 선택지를 적어주세요. 데굴이들이 결말을 정합니다.</p>
-        <input id="decision-question" maxlength="30" placeholder="무엇을 결정할까요?" aria-label="결정할 질문" required />
-        <div id="name-fields">
-          <div class="participant"><input name="name" maxlength="10" placeholder="1번째 선택지" aria-label="1번째 선택지" required /><select name="character" aria-label="첫 번째 캐릭터"></select><div class="mini-character-picker" aria-label="첫 번째 캐릭터 선택"><button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button><div class="mini-character-preview"><img alt="" /><span>곰</span></div><button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button></div></div>
-          <div class="participant"><input name="name" maxlength="10" placeholder="2번째 선택지" aria-label="2번째 선택지" required /><select name="character" aria-label="두 번째 캐릭터"></select><div class="mini-character-picker" aria-label="두 번째 캐릭터 선택"><button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button><div class="mini-character-preview"><img alt="" /><span>토끼</span></div><button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button></div></div>
-          <div class="participant"><input name="name" maxlength="10" placeholder="3번째 선택지 (선택)" aria-label="3번째 선택지" /><select name="character" aria-label="세 번째 캐릭터"></select><div class="mini-character-picker" aria-label="세 번째 캐릭터 선택"><button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button><div class="mini-character-preview"><img alt="" /><span>고양이</span></div><button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button></div></div>
-          <div class="participant"><input name="name" maxlength="10" placeholder="4번째 선택지 (선택)" aria-label="4번째 선택지" /><select name="character" aria-label="네 번째 캐릭터"></select><div class="mini-character-picker" aria-label="네 번째 캐릭터 선택"><button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button><div class="mini-character-preview"><img alt="" /><span>오리</span></div><button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button></div></div>
-        </div>
+        <header class="setup-header">
+          <span class="brand-pill">D E G U L - I</span>
+          <h1 id="setup-title">고민은 <em>가볍게</em><br />데굴이가 골라줘</h1>
+          <p id="setup-description">선택지를 적고 캐릭터를 골라주세요.<br />가장 먼저 들어온 데굴이가 하나를 골라줘요.</p>
+        </header>
+        <section class="question-field" aria-labelledby="question-label">
+          <label id="question-label" for="decision-question">Q. 고민은 뭐야?</label>
+          <input id="decision-question" maxlength="30" placeholder="무엇을 골라줄까?" required />
+        </section>
+        <section id="name-fields" aria-label="선택지와 캐릭터">
+          <div class="participant setup-card setup-card--yellow">
+            <input name="name" maxlength="10" placeholder="1번째 선택지" aria-label="1번째 선택지" required />
+            <select name="character" aria-label="첫 번째 캐릭터"></select>
+            <div class="mini-character-picker" aria-label="첫 번째 캐릭터 선택">
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
+              <div class="mini-character-preview"><img alt="" /><span>곰</span></div>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
+            </div>
+          </div>
+          <div class="participant setup-card setup-card--rose">
+            <input name="name" maxlength="10" placeholder="2번째 선택지" aria-label="2번째 선택지" required />
+            <select name="character" aria-label="두 번째 캐릭터"></select>
+            <div class="mini-character-picker" aria-label="두 번째 캐릭터 선택">
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
+              <div class="mini-character-preview"><img alt="" /><span>토끼</span></div>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
+            </div>
+          </div>
+          <div class="participant setup-card setup-card--indigo">
+            <input name="name" maxlength="10" placeholder="3번째 선택지 (선택)" aria-label="3번째 선택지" />
+            <select name="character" aria-label="세 번째 캐릭터"></select>
+            <div class="mini-character-picker" aria-label="세 번째 캐릭터 선택">
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
+              <div class="mini-character-preview"><img alt="" /><span>고양이</span></div>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
+            </div>
+          </div>
+          <div class="participant setup-card setup-card--sky">
+            <input name="name" maxlength="10" placeholder="4번째 선택지 (선택)" aria-label="4번째 선택지" />
+            <select name="character" aria-label="네 번째 캐릭터"></select>
+            <div class="mini-character-picker" aria-label="네 번째 캐릭터 선택">
+              <button class="character-step" data-direction="-1" type="button" aria-label="이전 캐릭터">‹</button>
+              <div class="mini-character-preview"><img alt="" /><span>오리</span></div>
+              <button class="character-step" data-direction="1" type="button" aria-label="다음 캐릭터">›</button>
+            </div>
+          </div>
+        </section>
         <div class="settings">
           <label><input id="sound-toggle" type="checkbox" checked /> 소리</label>
           <label><input id="haptic-toggle" type="checkbox" checked /> 진동</label>
         </div>
-        <button id="setup-submit" class="primary" type="submit" disabled>데굴이들에게 골라달라고 하기</button>
+        <footer class="setup-footer">
+          <button id="setup-submit" class="primary" type="submit" disabled>데굴이들에게 골라달라고 하기</button>
+          <small>Powered by Degul-i Game Engine</small>
+        </footer>
       </form>
     </section>
     <section id="result" class="overlay" aria-labelledby="result-title" hidden>
