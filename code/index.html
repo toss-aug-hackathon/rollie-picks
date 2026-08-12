@@ -157,14 +157,17 @@
     #setup #name-fields select { min-width: 0; width: 100%; color: var(--setup-ink); outline: none; }
     #setup #name-fields input { padding: 13px 10px 8px; border: 0; border-bottom: 3px solid var(--setup-ink); background: rgb(255 255 255 / 68%); font-size: 14px; font-weight: 800; }
     #setup #name-fields select { display: none; }
-    #setup .mini-character-picker { min-height: 112px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 3px; padding: 6px; background: rgb(255 255 255 / 34%); }
-    #setup .mini-character-preview { min-width: 0; height: 98px; display: grid; place-items: center; grid-template-rows: 74px 18px; font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
-    #setup .mini-character-preview img { width: 100%; height: 74px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
-    #setup .character-step { width: 44px; height: 44px; padding: 0; border: 2px solid var(--setup-ink); border-radius: 6px; color: var(--setup-ink); background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 26px; line-height: 1; }
+    #setup .mini-character-picker { min-height: 130px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 0; padding: 4px; background: rgb(255 255 255 / 34%); }
+    #setup .mini-character-preview { min-width: 0; height: 120px; display: grid; place-items: center; grid-template-rows: 94px 22px; font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
+    #setup .mini-character-preview img { width: 112px; max-width: none; height: 94px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
+    #setup .mini-character-preview span { position: relative; z-index: 2; width: max-content; max-width: 112px; padding: 2px 6px; overflow: visible; border: 2px solid var(--setup-ink); border-radius: 999px; background: #fff; font-size: 11px; line-height: 16px; white-space: nowrap; }
+    #setup .character-step { position: relative; isolation: isolate; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-size: 21px; line-height: 1; }
+    #setup .character-step::before { position: absolute; inset: 7px; z-index: -1; border: 2px solid var(--setup-ink); border-radius: 6px; background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); content: ""; }
     #setup .character-step,
     #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
     #setup .character-step:active,
-    #setup #setup-submit:active:not(:disabled) { transform: translateY(3px); box-shadow: 1px 1px 0 var(--setup-ink); }
+    #setup #setup-submit:active:not(:disabled) { transform: translateY(3px); }
+    #setup .character-step:active::before { box-shadow: none; }
     #setup .mini-character-picker[aria-disabled="true"] { opacity: .35; }
     #setup #name-fields select option:disabled { color: #a1a1aa; }
     #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
@@ -176,7 +179,6 @@
     #setup #setup-submit { width: 100%; padding: 15px 12px; border-radius: 9px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
     #setup #setup-submit:not(:disabled):hover { background: var(--setup-orange-dark); }
     #setup #setup-submit:disabled { color: #71717a; background: #e4e4e7; cursor: not-allowed; }
-    #setup .setup-footer small { display: block; margin-top: 13px; color: #71717a; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
     #setup :focus-visible { outline: 4px solid rgb(250 204 21 / 45%); outline-offset: 2px; }
     .feedback-carousel { border-block: 3px dashed var(--ink); }
     #result-list li { border: 3px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); font-family: inherit; }
@@ -249,7 +251,6 @@
         </div>
         <footer class="setup-footer">
           <button id="setup-submit" class="primary" type="submit" disabled>데굴이들에게 골라달라고 하기</button>
-          <small>Powered by Degul-i Game Engine</small>
         </footer>
       </form>
     </section>
