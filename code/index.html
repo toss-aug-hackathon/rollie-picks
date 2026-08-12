@@ -56,8 +56,6 @@
     .mini-character-picker[aria-disabled="true"] { opacity: .35; }
     #name-fields select option:disabled { color: #aaa; }
     #name-fields input:focus { position: relative; z-index: 1; box-shadow: inset 0 0 0 2px var(--carrot); }
-    #decision-question { display: none; width: 100%; margin-bottom: 9px; padding: 13px 14px; border: 3px solid var(--forest); border-radius: 15px; color: var(--ink); background: #dff6ff; outline: none; box-shadow: 0 4px 0 #1f603c; }
-    #game[data-mode="choice"] #decision-question { display: block; }
     #game[data-mode="choice"] .card { background: #eaf9df; }
     #game[data-mode="choice"] #name-fields { border-color: #2489a7; background: #2489a7; box-shadow-color: #17687f; }
     #race-start { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; pointer-events: none; background: #163b2db8; backdrop-filter: blur(2px); }
@@ -159,10 +157,10 @@
     #setup #name-fields select { min-width: 0; width: 100%; color: var(--setup-ink); outline: none; }
     #setup #name-fields input { padding: 13px 10px 8px; border: 0; border-bottom: 3px solid var(--setup-ink); background: rgb(255 255 255 / 68%); font-size: 14px; font-weight: 800; }
     #setup #name-fields select { display: none; }
-    #setup .mini-character-picker { min-height: 112px; display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; gap: 3px; padding: 6px; background: rgb(255 255 255 / 34%); }
+    #setup .mini-character-picker { min-height: 112px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 3px; padding: 6px; background: rgb(255 255 255 / 34%); }
     #setup .mini-character-preview { min-width: 0; height: 98px; display: grid; place-items: center; grid-template-rows: 74px 18px; font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
     #setup .mini-character-preview img { width: 100%; height: 74px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
-    #setup .character-step { width: 30px; height: 44px; padding: 0; border: 2px solid var(--setup-ink); border-radius: 6px; color: var(--setup-ink); background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 26px; line-height: 1; }
+    #setup .character-step { width: 44px; height: 44px; padding: 0; border: 2px solid var(--setup-ink); border-radius: 6px; color: var(--setup-ink); background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 26px; line-height: 1; }
     #setup .character-step,
     #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
     #setup .character-step:active,
@@ -171,7 +169,7 @@
     #setup #name-fields select option:disabled { color: #a1a1aa; }
     #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
     #setup .settings { display: flex; justify-content: center; gap: 18px; margin: 20px 0 14px; color: var(--setup-ink); font-size: 14px; font-weight: 800; }
-    #setup .settings label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+    #setup .settings label { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
     #setup .settings input { appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid var(--setup-ink); border-radius: 4px; background: #fff; box-shadow: 2px 2px 0 var(--setup-ink); }
     #setup .settings input:checked { background: var(--setup-orange); box-shadow: 2px 2px 0 var(--setup-ink), inset 0 0 0 4px #fff; }
     #setup .setup-footer { margin-top: auto; padding-top: 10px; text-align: center; }
