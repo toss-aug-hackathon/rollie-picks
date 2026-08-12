@@ -15,6 +15,10 @@ const RACER_GAP_X = 78;
 const EDGE_SOFT_LIMIT = 145;
 const EDGE_INWARD_FORCE = 18;
 const MOLE_UP_TIME = 3;
+const RIVER_TOP_Y = 1350;
+const RIVER_BOTTOM_Y = 1780;
+const BRIDGE_HALF_WIDTH = 64;
+const WATER_SPEED = 0.72;
 const PLACEMENT_PARTS = [
   { x: 0, y: 25, rx: 22, ry: 20 },
   { x: 0, y: -3, rx: 19, ry: 25 },
@@ -191,6 +195,18 @@ function tone(frequency = 440, duration = 0.08) {
 function screenToWorldY(screenY) {
   return HEIGHT / 2 - screenY;
 }
+
+function isRiverZone(worldY) {
+  const courseY = HEIGHT / 2 - worldY;
+  return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y;
+}
+
+function isWater(x, worldY) {
+  return isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
+}
+
+console.assert(isRiverZone(screenToWorldY(1500)) && !isRiverZone(screenToWorldY(1200)), 'river zone failed');
+console.assert(!isWater(0, screenToWorldY(1500)) && isWater(100, screenToWorldY(1500)), 'bridge zone failed');
 
 function makeWall() {
   const canvas = document.createElement('canvas');
@@ -1202,51 +1218,26 @@ function clearMountains() {
 
 function makeMountainVisual(width, height, color) {
   const group = new THREE.Group();
-  const shape = new THREE.Shape();
-  shape.moveTo(-width, 0);
-  shape.lineTo(0, height);
-  shape.lineTo(width, 0);
-  shape.closePath();
+  const geometry = new THREE.SphereGeometry(1, 10, 6);
   const outline = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(shape, { depth: 16, bevelEnabled: true, bevelSize: 2, bevelThickness: 2, bevelSegments: 2 }),
-    new THREE.MeshBasicMaterial({ color: 0x202020 })
+    geometry,
+    new THREE.MeshBasicMaterial({ color: 0x405344 })
   );
-  outline.position.z = -8;
-  const mountain = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color }));
-  mountain.scale.set(0.86, 0.82, 1);
-  mountain.position.set(0, 3, 10);
-  group.add(outline, mountain);
-
-  const leftFaceShape = new THREE.Shape();
-  leftFaceShape.moveTo(-width, 0);
-  leftFaceShape.lineTo(0, height);
-  leftFaceShape.lineTo(0, 0);
-  leftFaceShape.closePath();
-  const leftFaceColor = new THREE.Color(color).offsetHSL(0, -0.04, -0.1);
-  const leftFace = new THREE.Mesh(new THREE.ShapeGeometry(leftFaceShape), new THREE.MeshBasicMaterial({ color: leftFaceColor }));
-  leftFace.scale.set(0.86, 0.82, 1);
-  leftFace.position.set(0, 3, 10.5);
-  group.add(leftFace);
-
-  const capShape = new THREE.Shape();
-  capShape.moveTo(-width * 0.38, height * 0.62);
-  capShape.lineTo(0, height);
-  capShape.lineTo(width * 0.38, height * 0.62);
-  capShape.lineTo(width * 0.2, height * 0.68);
-  capShape.lineTo(width * 0.08, height * 0.58);
-  capShape.lineTo(-width * 0.08, height * 0.69);
-  capShape.lineTo(-width * 0.22, height * 0.59);
-  capShape.closePath();
-  const cap = new THREE.Mesh(new THREE.ShapeGeometry(capShape), new THREE.MeshBasicMaterial({ color: 0xfff4c7 }));
-  cap.scale.set(0.86, 0.82, 1);
-  cap.position.set(0, 3, 11);
-  group.add(cap);
+  outline.scale.set(width, height, 11);
+  outline.position.y = height * 0.55;
+  const rock = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true }));
+  rock.scale.set(width * 0.88, height * 0.82, 12);
+  rock.position.set(0, height * 0.58, 2);
+  const highlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xd8d0b8 }));
+  highlight.scale.set(width * 0.24, height * 0.16, 2);
+  highlight.position.set(-width * 0.25, height * 0.9, 15);
+  group.add(outline, rock, highlight);
   return group;
 }
 
 function createMountains() {
   clearMountains();
-  const colors = [0x846b59, 0x6f7b72, 0x936f56, 0x66766e, 0x7d685e];
+  const colors = [0x9d9a86, 0x858e82, 0xa7a18c, 0x7d8981, 0x96917f];
   for (let index = 0; index < 5; index += 1) {
     const width = 34 + Math.random() * 9;
     const height = 18 + Math.random() * 7;
@@ -1564,6 +1555,10 @@ function updateMole(dt) {
     if (mole.phase === 'hidden') {
       const x = THREE.MathUtils.randFloat(-125, 125);
       const y = cameraY - THREE.MathUtils.randFloat(190, 330);
+      if (isRiverZone(y)) {
+        mole.timer = 0.25;
+        return;
+      }
       mole.body.setNextKinematicTranslation({ x, y, z: 15 });
       mole.group.position.set(x, y, 15);
       mole.group.visible = true;
@@ -1818,10 +1813,11 @@ function syncVisuals(dt) {
       const knockedBack = racer.knockbackUntil > raceElapsed;
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
-        const rollingSpeed = (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1);
+        const slowedByWater = isWater(position.x, position.y);
+        const rollingSpeed = (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
         if (knockedBack) {
           racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
-        } else if (angular.x * racer.flipAxisX < rollingSpeed) {
+        } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
           racer.body.setAngvel({ x: racer.flipAxisX * rollingSpeed, y: angular.y, z: angular.z }, true);
         }
       }
