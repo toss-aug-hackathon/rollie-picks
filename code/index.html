@@ -114,7 +114,7 @@
       min-height: 100%;
       display: flex;
       flex-direction: column;
-      padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+      padding: max(18px, env(safe-area-inset-top)) 24px max(18px, env(safe-area-inset-bottom));
       overflow: hidden;
       font-family: "Noto Sans KR", Pretendard, system-ui, sans-serif;
       background: var(--setup-cream);
@@ -136,32 +136,32 @@
     #setup .setup-card,
     #setup #decision-question,
     #setup #setup-submit { border: 3px solid var(--setup-ink); box-shadow: 4px 4px 0 var(--setup-ink); }
-    #setup .setup-header { margin: 14px auto 24px; text-align: center; }
+    #setup .setup-header { margin: 8px auto 14px; text-align: center; }
     #setup .brand-pill { display: inline-block; padding: 6px 11px; border: 2px solid var(--setup-ink); border-radius: 999px; background: #facc15; box-shadow: 2px 2px 0 var(--setup-ink); font-size: 11px; font-weight: 900; letter-spacing: .16em; transform: rotate(-2deg); }
-    #setup #setup-title { margin: 16px 0 10px; font-size: clamp(30px, 8vw, 40px); font-weight: 950; line-height: 1.1; letter-spacing: -.08em; word-break: keep-all; }
+    #setup #setup-title { margin: 10px 0 6px; font-size: clamp(30px, 8vw, 40px); font-weight: 950; line-height: 1.08; letter-spacing: -.08em; word-break: keep-all; }
     #setup #setup-title em { color: var(--setup-orange-dark); font-style: normal; text-decoration: underline 4px #facc15; text-underline-offset: 4px; }
-    #setup #setup-description { margin: 0; color: #52525b; font-size: 14px; font-weight: 650; line-height: 1.55; word-break: keep-all; }
-    #setup .question-field { position: relative; margin: 0 0 20px; padding-top: 10px; }
+    #setup #setup-description { margin: 0; color: #52525b; font-size: 13px; font-weight: 650; line-height: 1.45; word-break: keep-all; }
+    #setup .question-field { position: relative; margin: 0 0 14px; padding-top: 10px; }
     #setup .question-field label { position: absolute; top: 0; left: 14px; z-index: 1; padding: 2px 8px; color: var(--setup-ink); background: #facc15; font-size: 12px; font-weight: 900; transform: rotate(-2deg); }
     #setup #decision-question { display: none; width: 100%; padding: 17px 15px 13px; border-radius: 9px; color: var(--setup-ink); background: #fff; font-size: 16px; font-weight: 700; }
     #game[data-mode="choice"] #setup #decision-question { display: block; }
     #setup #decision-question::placeholder { color: #a1a1aa; }
-    #setup #name-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    #setup #name-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     #game[data-mode="choice"] #setup #name-fields { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-    #setup .participant { min-width: 0; display: grid; grid-template-rows: auto 1fr; padding: 0; border-radius: 10px; overflow: hidden; }
+    #setup .participant { position: relative; min-width: 0; display: grid; grid-template-rows: auto 1fr; padding: 0; border-radius: 10px; overflow: hidden; box-shadow: 4px 4px 0 var(--setup-ink); }
     #setup .setup-card--yellow { background: #fde68a; }
     #setup .setup-card--rose { background: #fecdd3; }
     #setup .setup-card--indigo { background: #c7d2fe; }
     #setup .setup-card--sky { background: #bae6fd; }
     #setup #name-fields input,
     #setup #name-fields select { min-width: 0; width: 100%; color: var(--setup-ink); outline: none; }
-    #setup #name-fields input { padding: 13px 10px 8px; border: 0; border-bottom: 3px solid var(--setup-ink); background: rgb(255 255 255 / 68%); font-size: 14px; font-weight: 800; }
+    #setup #name-fields input { padding: 11px 8px 8px; border: 0; border-bottom: 3px solid var(--setup-ink); background: rgb(255 255 255 / 68%); font-size: 14px; font-weight: 800; text-align: center; }
     #setup #name-fields select { display: none; }
-    #setup .mini-character-picker { position: relative; min-height: 130px; display: flex; align-items: center; justify-content: space-between; padding: 4px; background: rgb(255 255 255 / 34%); }
-    #setup .mini-character-preview { position: absolute; top: 5px; left: 50%; width: 112px; height: 120px; display: grid; place-items: center; grid-template-rows: 94px 22px; transform: translateX(-50%); font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
-    #setup .mini-character-preview img { width: 112px; max-width: none; height: 94px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
+    #setup .mini-character-picker { position: relative; min-height: 124px; display: flex; align-items: center; justify-content: space-between; padding: 4px; background: rgb(255 255 255 / 34%); }
+    #setup .mini-character-preview { position: absolute; top: 3px; left: 50%; width: 112px; height: 118px; display: grid; place-items: center; grid-template-rows: 88px 22px; row-gap: 6px; transform: translateX(-50%); font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
+    #setup .mini-character-preview img { width: 112px; max-width: none; height: 88px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
     #setup .mini-character-preview span { position: relative; z-index: 2; width: max-content; max-width: 112px; padding: 2px 6px; overflow: visible; border: 2px solid var(--setup-ink); border-radius: 999px; background: #fff; font-size: 11px; line-height: 16px; white-space: nowrap; }
-    #setup .character-step { position: relative; z-index: 3; isolation: isolate; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-size: 21px; line-height: 1; }
+    #setup .character-step { position: relative; top: -8px; z-index: 3; isolation: isolate; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-size: 21px; line-height: 1; }
     #setup .character-step::before { position: absolute; inset: 7px; z-index: -1; border: 2px solid var(--setup-ink); border-radius: 6px; background: #fff9e6; box-shadow: 2px 2px 0 var(--setup-ink); content: ""; }
     #setup .character-step,
     #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
@@ -171,11 +171,11 @@
     #setup .mini-character-picker[aria-disabled="true"] { opacity: .35; }
     #setup #name-fields select option:disabled { color: #a1a1aa; }
     #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
-    #setup .settings { display: flex; justify-content: center; gap: 18px; margin: 20px 0 14px; color: var(--setup-ink); font-size: 14px; font-weight: 800; }
+    #setup .settings { display: flex; justify-content: center; gap: 18px; margin: 8px 0 4px; color: var(--setup-ink); font-size: 14px; font-weight: 800; }
     #setup .settings label { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
     #setup .settings input { appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid var(--setup-ink); border-radius: 4px; background: #fff; box-shadow: 2px 2px 0 var(--setup-ink); }
     #setup .settings input:checked { background: var(--setup-orange); box-shadow: 2px 2px 0 var(--setup-ink), inset 0 0 0 4px #fff; }
-    #setup .setup-footer { margin-top: auto; padding-top: 10px; text-align: center; }
+    #setup .setup-footer { margin-top: auto; padding-top: 0; text-align: center; }
     #setup #setup-submit { width: 100%; padding: 15px 12px; border-radius: 9px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
     #setup #setup-submit:not(:disabled):hover { background: var(--setup-orange-dark); }
     #setup #setup-submit:disabled { color: #71717a; background: #e4e4e7; cursor: not-allowed; }
