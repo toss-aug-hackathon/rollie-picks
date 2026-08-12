@@ -40,10 +40,10 @@
     .hero-title img { display: inline-block; width: 54px; height: 30px; margin-left: 5px; border-radius: 999px; object-fit: cover; object-position: 50% 28%; vertical-align: middle; filter: saturate(.75) contrast(1.08); }
     .card h2 { max-width: 19rem; margin: 0 0 8px; font-family: Georgia, "Noto Serif KR", serif; font-size: 30px; line-height: 1.06; letter-spacing: -.055em; }
     .card > p { margin: 0 0 18px; color: #4f6b60; line-height: 1.45; }
-    .field-label, .field-heading { font-size: 15px; }
+    .field-label, .field-heading { font-size: 15px; font-weight: 700; }
     .field-label { display: block; margin-bottom: 6px; }
     .field-heading { display: flex; align-items: baseline; justify-content: space-between; margin: 12px 0 7px; }
-    .field-heading small { color: #4f6b60; font-size: 12px; }
+    .field-heading small { color: #4f6b60; font-size: 12px; font-weight: 400; }
     .turtle-mark { position: absolute; top: 58px; right: -18px; width: 80px; height: 58px; opacity: .18; transform: rotate(-12deg); }
     .turtle-mark::before { position: absolute; inset: 9px 18px 5px 4px; border: 4px double var(--forest); border-radius: 50%; content: ""; }
     .turtle-mark::after { position: absolute; top: 19px; right: 5px; width: 18px; height: 16px; border-radius: 50%; background: var(--forest); box-shadow: -49px -15px 0 -4px var(--forest), -49px 22px 0 -4px var(--forest), -16px -16px 0 -4px var(--forest), -16px 23px 0 -4px var(--forest); content: ""; }
@@ -73,8 +73,10 @@
     .signal-lights i.go { background: #72ed6c; box-shadow: 0 0 30px #72ed6c, inset 0 -5px 0 #2b9f42; }
     #start-count { color: #fffbd5; font-size: 86px; font-weight: 950; line-height: .95; text-shadow: 0 7px 0 #10291f; }
     #start-caption { margin-top: 8px; color: #fff3a7; font-size: 14px; font-weight: 850; letter-spacing: .13em; }
-    .settings { display: flex; gap: 18px; margin: 14px 2px; color: #4f6b60; font-size: 13px; font-weight: 700; }
+    .settings { display: flex; align-items: center; gap: 16px; margin: 14px 2px; color: #4f6b60; font-size: 13px; font-weight: 700; }
     .settings input { accent-color: var(--forest); }
+    .settings label:last-child { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+    .settings select { padding: 4px 6px; border: 2px solid var(--ink); border-radius: 5px; color: var(--ink); background: var(--cream); }
     .primary { width: 100%; padding: 14px; border: 1px solid #17392f; border-radius: 4px 14px 4px 14px; color: var(--cream); background: var(--forest); box-shadow: 4px 5px 0 #df7040; font-weight: 850; transition: transform .25s ease, background .25s ease; }
     .primary:active, .secondary:active { transform: scale(.97); }
     .feedback-carousel { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; margin: 14px 0; border-block: 1px dashed #6e5a3f88; }
@@ -93,7 +95,7 @@
     :root { --ink: #202020; --forest: #16804c; --cream: #fffceb; --paper: #ffe66a; --carrot: #ff5b45; --sun: #ffd83d; }
     html, body { background: #ffdf43; }
     body { font-family: "Gowun Dodum", Pretendard, system-ui, sans-serif; background-color: #ffdf43; background-image: linear-gradient(90deg, #ffffff55 50%, transparent 50%), linear-gradient(#ffffff55 50%, transparent 50%); background-size: 28px 28px; }
-    #game { border: 4px solid var(--ink); background: #67ddeb; box-shadow: 9px 9px 0 #1671d9; }
+    #game { border: 0; background: #67ddeb; box-shadow: none; }
     #game::after { display: none; }
     #hud { border: 3px solid var(--ink); border-radius: 7px; background: var(--paper); box-shadow: 4px 4px 0 var(--ink); backdrop-filter: none; transform: rotate(-.5deg); }
     #race-question { font-family: inherit; letter-spacing: 0; }
@@ -125,6 +127,27 @@
     #decision-question { border-color: var(--ink); border-radius: 7px; box-shadow: 4px 4px 0 var(--ink); }
     .start-board { border-color: var(--ink); border-radius: 9px; background: #1671d9; box-shadow: 7px 7px 0 var(--ink); transform: rotate(-1deg); }
     .signal-lights i { border-color: var(--ink); }
+    html[data-theme="night"] { --ink: #f6e8b5; --forest: #513d83; --cream: #111a34; --paper: #263860; --carrot: #7454a7; }
+    html[data-theme="night"], html[data-theme="night"] body { background-color: #071126; background-image: linear-gradient(90deg, #24345b55 50%, transparent 50%), linear-gradient(#24345b55 50%, transparent 50%); }
+    html[data-theme="night"] #game { background: #101936; }
+    html[data-theme="night"] #hud { color: #fff7d3; background: #182746; box-shadow: 4px 4px 0 #080d1d; }
+    html[data-theme="night"] #status { color: #fff7d3; background: #7454a7; }
+    html[data-theme="night"] #guide, html[data-theme="night"] .primary { color: #fff7d3; background: #7454a7; box-shadow: 5px 5px 0 #080d1d; }
+    html[data-theme="night"] .player-label { color: #fff7d3; background: #293b68; box-shadow: 2px 2px 0 #080d1d; }
+    html[data-theme="night"] #setup, html[data-theme="night"] .setup-page { color: #fff7d3; background: #111a34; }
+    html[data-theme="night"] .setup-page > p, html[data-theme="night"] .field-heading small, html[data-theme="night"] #result-copy { color: #bdc9e8; }
+    html[data-theme="night"] .story-marquee { color: #fff7d3; background: #513d83; }
+    html[data-theme="night"] #decision-question, html[data-theme="night"] #name-fields input { color: #fff7d3; background: #22345d; }
+    html[data-theme="night"] input::placeholder { color: #aebbd8; }
+    html[data-theme="night"] .mini-character-picker { background: #1a294b; }
+    html[data-theme="night"] .settings { color: #fff7d3; }
+    html[data-theme="night"] .settings select { color: #fff7d3; background: #22345d; }
+    html[data-theme="night"] .overlay { background: #080d1dcc; }
+    html[data-theme="night"] .card { color: #fff7d3; background: #172544; box-shadow: 8px 8px 0 #080d1d; }
+    html[data-theme="night"] #result-speech, html[data-theme="night"] #result-speech::before { color: #fff7d3; background: #263860; }
+    html[data-theme="night"] #result-list li, html[data-theme="night"] .secondary { color: #fff7d3; background: #263860; box-shadow: 3px 3px 0 #080d1d; }
+    html[data-theme="night"] #result-list li:first-child { background: #7454a7; }
+    html[data-theme="night"] .start-board { color: #fff7d3; background: #293b68; box-shadow: 7px 7px 0 #080d1d; }
     @media (hover: hover) { button:hover { filter: brightness(1.08); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
   </style>
@@ -153,6 +176,7 @@
         <div class="settings">
           <label><input id="sound-toggle" type="checkbox" checked /> 소리</label>
           <label><input id="haptic-toggle" type="checkbox" checked /> 진동</label>
+          <label>배경 <select id="theme-mode" aria-label="배경 모드"><option value="auto">자동</option><option value="day">낮</option><option value="night">밤</option></select></label>
         </div>
         <button id="setup-submit" class="primary" type="submit" disabled>데굴이들에게 골라달라고 하기</button>
       </form>
