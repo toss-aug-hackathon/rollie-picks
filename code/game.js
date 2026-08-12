@@ -2021,15 +2021,33 @@ characterSelects.forEach((select, index) => {
   select.value = KEYS[index];
   select.addEventListener('change', syncCharacterOptions);
 });
-characterSteps.forEach((button) => button.addEventListener('click', () => {
-  const index = participants.indexOf(button.closest('.participant'));
+function stepCharacter(index, direction) {
   const select = characterSelects[index];
   const available = [...select.options].filter((option) => !option.disabled || option.selected).map((option) => option.value);
-  const next = (available.indexOf(select.value) + Number(button.dataset.direction) + available.length) % available.length;
+  const next = (available.indexOf(select.value) + direction + available.length) % available.length;
   select.value = available[next];
   syncCharacterOptions();
-  gsap.fromTo(characterPreviewImages[index], { x: Number(button.dataset.direction) * 18, opacity: 0.25 }, { x: 0, opacity: 1, duration: 0.25 * motionScale });
+  gsap.fromTo(characterPreviewImages[index], { x: direction * 18, opacity: 0.25 }, { x: 0, opacity: 1, duration: 0.25 * motionScale });
+}
+
+const swipeDirection = (distance) => Math.abs(distance) >= 30 ? -Math.sign(distance) : 0;
+console.assert(swipeDirection(-40) === 1 && swipeDirection(20) === 0, 'character swipe failed');
+
+characterSteps.forEach((button) => button.addEventListener('click', () => {
+  stepCharacter(participants.indexOf(button.closest('.participant')), Number(button.dataset.direction));
 }));
+characterPickers.forEach((picker, index) => {
+  const preview = picker.querySelector('.mini-character-preview');
+  let startX;
+  preview.addEventListener('pointerdown', (event) => {
+    startX = event.clientX;
+    preview.setPointerCapture(event.pointerId);
+  });
+  preview.addEventListener('pointerup', (event) => {
+    const direction = swipeDirection(event.clientX - startX);
+    if (direction && picker.getAttribute('aria-disabled') !== 'true') stepCharacter(index, direction);
+  });
+});
 nameInputs.forEach((input) => input.addEventListener('input', syncCharacterOptions));
 syncCharacterOptions();
 document.querySelector('#replay').addEventListener('click', () => {
