@@ -166,16 +166,6 @@ function showComment(offset = 0) {
   gsap.fromTo(resultCopy, { x: offset * 10, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 * motionScale });
 }
 
-function revealText(element) {
-  const words = element.textContent.split(' ');
-  element.replaceChildren(...words.map((word, index) => {
-    const span = document.createElement('span');
-    span.textContent = word + (index < words.length - 1 ? ' ' : '');
-    return span;
-  }));
-  gsap.fromTo(element.children, { opacity: 0.12 }, { opacity: 1, stagger: 0.035, duration: 0.35 * motionScale });
-}
-
 function buzz(pattern) {
   if (hapticEnabled) navigator.vibrate?.(pattern);
 }
@@ -1913,7 +1903,6 @@ async function boot() {
   setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
   gsap.from('#setup-form', { opacity: 0, duration: 0.5 * motionScale, ease: 'power2.out' });
   gsap.from('.hero-title img', { scale: 0.8, opacity: 0.2, duration: 0.8 * motionScale, ease: 'back.out(1.6)' });
-  revealText(setupDescription);
   if (motionScale) gsap.to('.story-marquee-track', { xPercent: -50, duration: 22, repeat: -1, ease: 'none' });
 
   let previous = performance.now();
