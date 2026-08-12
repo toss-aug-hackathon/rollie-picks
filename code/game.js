@@ -5,11 +5,14 @@ import { gsap } from 'gsap';
 const WIDTH = 390;
 const HEIGHT = 844;
 const START_LINE_Y = 360;
+const START_Y = START_LINE_Y - 55;
 const FLOOR_Y = 2350;
 const COURSE_HEIGHT = 2800;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
 const ROLL_SPEED = 1.3;
+const CATCH_UP_GAP = 48;
+const CATCH_UP_BOOST = 1.24;
 const NIGHT_START = 19;
 const NIGHT_END = 6;
 const WALL_Z = -5;
@@ -227,6 +230,14 @@ function tone(frequency = 440, duration = 0.08) {
 function screenToWorldY(screenY) {
   return HEIGHT / 2 - screenY;
 }
+
+function catchUpIndex(progressY) {
+  const leader = Math.min(...progressY);
+  const last = Math.max(...progressY);
+  return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
+}
+
+console.assert(catchUpIndex([0, 20, 60]) === 2 && catchUpIndex([0, 20]) === -1, 'catch-up selection failed');
 
 function isRiverZone(worldY) {
   const courseY = HEIGHT / 2 - worldY;
@@ -1418,11 +1429,13 @@ function makeVisual(key, targetScene = scene) {
     limb(5, 7, [12, 39, 0], 0.25);
   }
 
-  ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark);
-  ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark);
+  const normalEyes = [
+    ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
+    ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
+  ];
   if (key === 'cat') {
-    ball([0.7, 1.2, 0.5], [-6.2, 28.5, 12], new THREE.MeshBasicMaterial({ color: 0x28242c }));
-    ball([0.7, 1.2, 0.5], [6.2, 28.5, 12], new THREE.MeshBasicMaterial({ color: 0x28242c }));
+    const pupil = new THREE.MeshBasicMaterial({ color: 0x28242c });
+    normalEyes.push(ball([0.7, 1.2, 0.5], [-6.2, 28.5, 12], pupil), ball([0.7, 1.2, 0.5], [6.2, 28.5, 12], pupil));
   }
   if (key === 'duck') accents.push(ball([5.8, 2.9, 2.4], [0, 22, 12], orange));
   else ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' ? pink : dark);
@@ -1433,13 +1446,62 @@ function makeVisual(key, targetScene = scene) {
 
   const tailSize = key === 'rabbit' ? 6 : key === 'turtle' ? 3 : 4.5;
   ball([tailSize, tailSize, 3], [0, -3, -10], fur);
+
+  const faceGroup = () => {
+    const face = new THREE.Group();
+    face.visible = false;
+    doll.add(face);
+    return face;
+  };
+  const stroke = (face, x, y, rotation, length = 4) => {
+    const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), dark);
+    line.position.set(x, y, 12.5);
+    line.rotation.z = rotation;
+    face.add(line);
+  };
+  const roundMouth = (face) => {
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(2, 0.65, 6, 16), dark);
+    mouth.position.set(0, 20, 12.5);
+    face.add(mouth);
+  };
+
+  const readyFace = faceGroup();
+  stroke(readyFace, -6.2, 33, -1.3, 4.5);
+  stroke(readyFace, 6.2, 33, 1.3, 4.5);
+  roundMouth(readyFace);
+
+  const hitFace = faceGroup();
+  stroke(hitFace, -6.2, 29.8, 0.75);
+  stroke(hitFace, -6.2, 27.2, -0.75);
+  stroke(hitFace, 6.2, 29.8, -0.75);
+  stroke(hitFace, 6.2, 27.2, 0.75);
+  roundMouth(hitFace);
+
+  const resultFace = faceGroup();
+  stroke(resultFace, -7.5, 28.5, -0.75);
+  stroke(resultFace, -4.9, 28.5, 0.75);
+  stroke(resultFace, 4.9, 28.5, -0.75);
+  stroke(resultFace, 7.5, 28.5, 0.75);
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.7, 6, 18, Math.PI), dark);
+  smile.position.set(0, 22, 12.5);
+  smile.rotation.z = Math.PI;
+  resultFace.add(smile);
+
   accents.forEach((part) => {
     part.userData.baseRotationZ = part.rotation.z;
     part.userData.baseScaleY = part.scale.y;
   });
-  group.userData = { doll, accents, key };
+  group.userData = { doll, accents, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
   targetScene.add(group);
   return group;
+}
+
+function setExpression(visual, expression = 'neutral') {
+  const { faces } = visual.userData;
+  faces.normalEyes.forEach((eye) => { eye.visible = expression !== 'hit' && expression !== 'result'; });
+  faces.ready.visible = expression === 'ready';
+  faces.hit.visible = expression === 'hit';
+  faces.result.visible = expression === 'result';
 }
 
 function renderCharacterPreviews() {
@@ -1458,8 +1520,12 @@ function renderCharacterPreviews() {
   CHARACTER_KEYS.forEach((key) => {
     const model = makeVisual(key, previewScene);
     model.rotation.y = -0.08;
+    setExpression(model, 'ready');
     previewRenderer.render(previewScene, previewCamera);
-    previews[key] = previewRenderer.domElement.toDataURL('image/png');
+    const ready = previewRenderer.domElement.toDataURL('image/png');
+    setExpression(model, 'result');
+    previewRenderer.render(previewScene, previewCamera);
+    previews[key] = { ready, result: previewRenderer.domElement.toDataURL('image/png') };
     previewScene.remove(model);
     model.traverse((part) => {
       if (!part.isMesh) return;
@@ -1700,7 +1766,7 @@ function createRacer(index) {
   const initialGrip = 0.65 + Math.random() * 0.25;
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(x, screenToWorldY(150), 5)
+      .setTranslation(x, screenToWorldY(START_Y), 5)
       .setLinearDamping(0.35)
       .setAngularDamping(0.7)
       .setCcdEnabled(true)
@@ -1724,7 +1790,7 @@ function createRacer(index) {
     isFlipping: false,
     knockbackUntil: 0,
     stickDuration: initialGrip,
-    lastProgressY: screenToWorldY(150),
+    lastProgressY: screenToWorldY(START_Y),
     stalledFor: 0,
     placed: false,
     active: true
@@ -1732,6 +1798,7 @@ function createRacer(index) {
   START_PADS[index].forEach((pad) => attachPad(racer, pad));
   racer.lastProgressY = anchorProgressY(racer);
   racer.knockbackUntil = 0;
+  racer.expressionUntil = 0;
   body.setAngvel({ x: 0, y: 0, z: 0.05 * (index % 2 ? 1 : -1) }, true);
   return racer;
 }
@@ -1771,12 +1838,15 @@ function resetRace() {
   resetMole();
   const active = racers.filter((racer) => racer.active);
   active.forEach((racer, index) => {
-    placeRacer(racer, (index - (active.length - 1) / 2) * RACER_GAP_X, screenToWorldY(150));
+    placeRacer(racer, (index - (active.length - 1) / 2) * RACER_GAP_X, screenToWorldY(START_Y));
     racer.placed = false;
     racer.isFlipping = false;
     racer.stickDuration = 0;
     racer.gripElapsed = 0;
     racer.stalledFor = 0;
+    racer.knockbackUntil = 0;
+    racer.expressionUntil = 0;
+    setExpression(racer.visual, 'ready');
   });
   status.textContent = '준비';
   raceTimer.textContent = '00:00.00';
@@ -1836,7 +1906,7 @@ function nearestOpenPosition(racer, targetX, targetY) {
           }
           const scale = 1.001 / distance;
           x = THREE.MathUtils.clamp(x + dx * (scale - 1), -160, 160);
-          y = THREE.MathUtils.clamp(y + dy * (scale - 1), screenToWorldY(START_LINE_Y - 55), screenToWorldY(105));
+          y = THREE.MathUtils.clamp(y + dy * (scale - 1), screenToWorldY(START_Y), screenToWorldY(105));
         });
       });
     });
@@ -1869,7 +1939,7 @@ renderer.domElement.addEventListener('pointermove', (event) => {
   const position = nearestOpenPosition(
     draggedRacer,
     THREE.MathUtils.clamp(point.x, -160, 160),
-    THREE.MathUtils.clamp(point.y, screenToWorldY(START_LINE_Y - 55), screenToWorldY(105))
+    THREE.MathUtils.clamp(point.y, screenToWorldY(START_Y), screenToWorldY(105))
   );
   placeRacer(draggedRacer, position.x, position.y);
 });
@@ -1879,10 +1949,16 @@ renderer.domElement.addEventListener('pointercancel', () => { draggedRacer = nul
 function syncVisuals(dt) {
   let lowest = Infinity;
   if (running) raceElapsed = (performance.now() - raceStartedAt) / 1000;
+  const activeRacers = racers.filter((racer) => racer.active);
+  const boostedRacer = activeRacers[catchUpIndex(activeRacers.map((racer) => racer.body.translation().y))];
   racers.forEach((racer) => {
     if (!racer.active) return;
     const position = racer.body.translation();
     const rotation = racer.body.rotation();
+    if (running && racer.expressionUntil && raceElapsed >= racer.expressionUntil) {
+      racer.expressionUntil = 0;
+      setExpression(racer.visual);
+    }
     racer.visual.position.set(position.x, position.y, position.z);
     racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     const sticking = racer.anchors.length > 1 && !racer.isFlipping && racer.gripElapsed < 0;
@@ -1918,7 +1994,8 @@ function syncVisuals(dt) {
         recoverStalledRacer(racer);
       }
       const shakeBoosted = performance.now() < shakeBoostUntil;
-      const speed = ROLL_SPEED * (shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
+      const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
+      const speed = ROLL_SPEED * catchUpBoost * (shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
       racer.gripElapsed += dt * speed;
       const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
       const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
@@ -1927,7 +2004,7 @@ function syncVisuals(dt) {
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
         const slowedByWater = isWater(position.x, position.y);
-        const rollingSpeed = ROLL_SPEED * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
+        const rollingSpeed = ROLL_SPEED * catchUpBoost * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
         if (knockedBack) {
           racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
         } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
@@ -1965,7 +2042,7 @@ function syncVisuals(dt) {
     const target = Math.min(0, lowest + 220);
     cameraY += (target - cameraY) * Math.min(1, dt * 3.2);
     camera.position.y = cameraY;
-    const progress = Math.max(0, Math.min(99, Math.round((screenToWorldY(150) - lowest) / (FLOOR_Y - 150) * 100)));
+    const progress = Math.max(0, Math.min(99, Math.round((screenToWorldY(START_Y) - lowest) / (FLOOR_Y - START_Y) * 100)));
     const minutes = Math.floor(raceElapsed / 60);
     const seconds = Math.floor(raceElapsed % 60);
     const hundredths = Math.floor(raceElapsed * 100) % 100;
@@ -1982,10 +2059,11 @@ function syncVisuals(dt) {
 function finishRace(racer) {
   finished = true;
   running = false;
+  setExpression(racer.visual, 'result');
   status.textContent = '선택 완료';
   guide.hidden = true;
   resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
-  resultCharacterImage.src = characterPreviews[racer.characterKey];
+  resultCharacterImage.src = characterPreviews[racer.characterKey].result;
   resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
   resultSpeech.textContent = `내 선택은 이거야!\n${racer.label.textContent}`;
   const comments = ['데굴이가 하나를 골랐어요.', '고민 끝! 이걸로 가볼까요?', '가장 먼저 내려온 데굴이의 선택이에요.'];
@@ -2037,6 +2115,7 @@ async function startRace() {
   buzz([60, 35, 90]);
   raceElapsed = 0;
   raceStartedAt = performance.now();
+  racers.filter((racer) => racer.active).forEach((racer) => setExpression(racer.visual));
   running = true;
   await wait(450);
   raceStart.hidden = true;
@@ -2111,6 +2190,8 @@ async function boot() {
             while (racer.anchors.length > 1) detachPad(racer, racer.anchors[0]);
             if (!racer.isFlipping) beginFlip(racer);
             racer.knockbackUntil = raceElapsed + 0.65;
+            racer.expressionUntil = raceElapsed + 0.7;
+            setExpression(racer.visual, 'hit');
             racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
             mole.hit = 0.18;
             gsap.fromTo(game, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
@@ -2169,7 +2250,7 @@ function syncCharacterOptions() {
     characterPickers[index].setAttribute('aria-disabled', String(disabled));
     characterPickers[index].querySelectorAll('button').forEach((button) => { button.disabled = disabled; });
     characterPreviewLabels[index].textContent = active[index] ? CHARACTER_NAMES[select.value] : '이름 입력 후 선택';
-    if (characterPreviews[select.value]) characterPreviewImages[index].src = characterPreviews[select.value];
+    if (characterPreviews[select.value]) characterPreviewImages[index].src = characterPreviews[select.value].ready;
   });
 }
 characterSelects.forEach((select, index) => {
