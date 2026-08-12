@@ -10,12 +10,16 @@ const COURSE_HEIGHT = 2800;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
 const ROLL_SPEED = 1.3;
+const NIGHT_START = 19;
+const NIGHT_END = 6;
 const WALL_Z = -5;
 const GRIP_Z = WALL_Z + 10;
 const RACER_GAP_X = 78;
 const EDGE_SOFT_LIMIT = 145;
 const EDGE_INWARD_FORCE = 18;
 const MOLE_UP_TIME = 3;
+const GHOST_FLY_TIME = 6;
+const GHOST_SPEED = 155;
 const RIVER_TOP_Y = 1350;
 const RIVER_BOTTOM_Y = 1780;
 const BRIDGE_HALF_WIDTH = 64;
@@ -57,6 +61,7 @@ const setupForm = document.querySelector('#setup-form');
 const setupSubmit = document.querySelector('#setup-submit');
 const setupDescription = document.querySelector('#setup-description');
 const decisionQuestion = document.querySelector('#decision-question');
+const themeSelect = document.querySelector('#theme-mode');
 const nameInputs = [...setupForm.elements.namedItem('name')];
 const characterSelects = [...setupForm.elements.namedItem('character')];
 const participants = [...document.querySelectorAll('.participant')];
@@ -93,9 +98,16 @@ let motionListening = false;
 let lastMotionMagnitude;
 let shakeBoostUntil = 0;
 let lastShakeAt = 0;
+let themeMode = 'auto';
+let activeTheme = themeForMode(themeMode);
+let courseWall;
+let courseMarkers;
+let courseNightMarkers;
+let dayCourseTexture;
+let nightCourseTexture;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8de8ee);
+scene.background = new THREE.Color();
 const camera = new THREE.OrthographicCamera(-WIDTH / 2, WIDTH / 2, HEIGHT / 2, -HEIGHT / 2, 0.1, 1000);
 camera.position.set(0, 0, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -103,13 +115,41 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 game.prepend(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x756477, 2.2));
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x756477, 2.2);
+scene.add(hemisphereLight);
 const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
 keyLight.position.set(-160, 250, 300);
 scene.add(keyLight);
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const motionScale = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
+
+function themeForMode(mode, hour = new Date().getHours()) {
+  return mode === 'auto' ? (hour >= NIGHT_START || hour < NIGHT_END ? 'night' : 'day') : mode;
+}
+
+console.assert(themeForMode('auto', 22) === 'night' && themeForMode('auto', 12) === 'day', 'auto theme failed');
+
+function applyTheme(mode) {
+  themeMode = mode;
+  activeTheme = themeForMode(mode);
+  const night = activeTheme === 'night';
+  document.documentElement.dataset.theme = activeTheme;
+  scene.background.set(night ? 0x101936 : 0x8de8ee);
+  hemisphereLight.intensity = night ? 1.35 : 2.2;
+  keyLight.intensity = night ? 1.45 : 2.2;
+  if (courseWall) {
+    courseWall.material.map = night ? nightCourseTexture : dayCourseTexture;
+    courseWall.material.needsUpdate = true;
+    courseMarkers.visible = !night;
+    courseNightMarkers.visible = night;
+  }
+  if (mole) {
+    mole.head.material.map = night ? mole.ghostTexture : mole.moleTexture;
+    mole.head.material.needsUpdate = true;
+    mole.dirt.visible = !night && mole.group.visible;
+  }
+}
 
 function motionMagnitude(acceleration) {
   return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
@@ -197,8 +237,13 @@ function isWater(x, worldY) {
   return isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
 }
 
+function canSpawnObstacle(theme, worldY) {
+  return theme === 'night' || !isRiverZone(worldY);
+}
+
 console.assert(isRiverZone(screenToWorldY(1500)) && !isRiverZone(screenToWorldY(1200)), 'river zone failed');
 console.assert(!isWater(0, screenToWorldY(1500)) && isWater(100, screenToWorldY(1500)), 'bridge zone failed');
+console.assert(canSpawnObstacle('night', screenToWorldY(1500)), 'night obstacle river spawn failed');
 
 function makeWall() {
   const canvas = document.createElement('canvas');
@@ -1098,18 +1143,14 @@ function makeWall() {
   // ------------------------------------------------------------
   // Three.js texture
   // ------------------------------------------------------------
-  const texture = new THREE.TextureLoader().load(
-    new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href
-  );
-
-  texture.colorSpace =
-    THREE.SRGBColorSpace;
-
-  texture.minFilter =
-    THREE.LinearFilter;
-
-  texture.magFilter =
-    THREE.LinearFilter;
+  const textureLoader = new THREE.TextureLoader();
+  dayCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href);
+  nightCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course-night.png', import.meta.url).href);
+  for (const texture of [dayCourseTexture, nightCourseTexture]) {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  }
 
   const wall =
     new THREE.Mesh(
@@ -1118,7 +1159,7 @@ function makeWall() {
         canvas.height
       ),
       new THREE.MeshBasicMaterial({
-        map: texture,
+        map: activeTheme === 'night' ? nightCourseTexture : dayCourseTexture,
         depthTest: false,
         depthWrite: false
       })
@@ -1133,6 +1174,7 @@ function makeWall() {
   );
 
   wall.renderOrder = -100;
+  courseWall = wall;
 
   const markers = new THREE.Mesh(
     new THREE.PlaneGeometry(WIDTH, canvas.height),
@@ -1145,8 +1187,83 @@ function makeWall() {
   );
   markers.position.set(0, wall.position.y, WALL_Z - 2);
   markers.renderOrder = -99;
+  markers.visible = activeTheme !== 'night';
+  courseMarkers = markers;
 
-  scene.add(wall, markers);
+  const nightMarkerCanvas = document.createElement('canvas');
+  nightMarkerCanvas.width = WIDTH;
+  nightMarkerCanvas.height = canvas.height;
+  const nightMarkerContext = nightMarkerCanvas.getContext('2d');
+  nightMarkerContext.textAlign = 'center';
+  nightMarkerContext.font = '800 15px Jua, system-ui';
+  nightMarkerContext.lineCap = 'round';
+
+  nightMarkerContext.save();
+  nightMarkerContext.shadowColor = '#b9ddff';
+  nightMarkerContext.shadowBlur = 12;
+  nightMarkerContext.strokeStyle = 'rgba(185, 221, 255, 0.34)';
+  nightMarkerContext.lineWidth = 10;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.moveTo(markerX, START_LINE_Y);
+  nightMarkerContext.lineTo(markerX + markerWidth, START_LINE_Y);
+  nightMarkerContext.stroke();
+  nightMarkerContext.strokeStyle = '#d9efff';
+  nightMarkerContext.lineWidth = 3;
+  nightMarkerContext.setLineDash([7, 10]);
+  nightMarkerContext.stroke();
+  nightMarkerContext.restore();
+
+  nightMarkerContext.fillStyle = '#17264bdd';
+  nightMarkerContext.strokeStyle = '#d9efff';
+  nightMarkerContext.lineWidth = 2;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.roundRect(WIDTH / 2 - 27, START_LINE_Y - 34, 54, 23, 8);
+  nightMarkerContext.fill();
+  nightMarkerContext.stroke();
+  nightMarkerContext.fillStyle = '#fff6ca';
+  nightMarkerContext.fillText('출발', WIDTH / 2, START_LINE_Y - 17);
+
+  nightMarkerContext.save();
+  nightMarkerContext.shadowColor = '#fff4a8';
+  nightMarkerContext.shadowBlur = 13;
+  nightMarkerContext.strokeStyle = 'rgba(219, 232, 255, 0.35)';
+  nightMarkerContext.lineWidth = 2;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.moveTo(markerX, FLOOR_Y);
+  nightMarkerContext.lineTo(markerX + markerWidth, FLOOR_Y);
+  nightMarkerContext.stroke();
+  nightMarkerContext.fillStyle = '#fff4a8';
+  for (let index = 0; index < 13; index += 1) {
+    const x = markerX + index * markerWidth / 12;
+    const radius = index % 2 ? 3 : 5;
+    nightMarkerContext.beginPath();
+    for (let point = 0; point < 10; point += 1) {
+      const angle = -Math.PI / 2 + point * Math.PI / 5;
+      const distance = point % 2 ? radius * 0.42 : radius;
+      const px = x + Math.cos(angle) * distance;
+      const py = FLOOR_Y + Math.sin(angle) * distance;
+      if (point === 0) nightMarkerContext.moveTo(px, py);
+      else nightMarkerContext.lineTo(px, py);
+    }
+    nightMarkerContext.closePath();
+    nightMarkerContext.fill();
+  }
+  nightMarkerContext.restore();
+  nightMarkerContext.fillStyle = '#fff6ca';
+  nightMarkerContext.fillText('도착', WIDTH / 2, FLOOR_Y - 15);
+
+  const nightMarkerTexture = new THREE.CanvasTexture(nightMarkerCanvas);
+  nightMarkerTexture.colorSpace = THREE.SRGBColorSpace;
+  const nightMarkers = new THREE.Mesh(
+    new THREE.PlaneGeometry(WIDTH, canvas.height),
+    new THREE.MeshBasicMaterial({ map: nightMarkerTexture, transparent: true, depthTest: true, depthWrite: false })
+  );
+  nightMarkers.position.copy(markers.position);
+  nightMarkers.renderOrder = -99;
+  nightMarkers.visible = activeTheme === 'night';
+  courseNightMarkers = nightMarkers;
+
+  scene.add(wall, markers, nightMarkers);
 }
 
 function clearMountains() {
@@ -1463,11 +1580,14 @@ function createMole() {
   const dirt = new THREE.Mesh(new THREE.SphereGeometry(22, 16, 8), brown);
   dirt.scale.set(1.5, 0.22, 0.45);
   dirt.position.z = -2;
-  const texture = new THREE.TextureLoader().load(new URL('./assets/obstacles/mole-plush.png', import.meta.url).href);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const loader = new THREE.TextureLoader();
+  const moleTexture = loader.load(new URL('./assets/obstacles/mole-plush.png', import.meta.url).href);
+  const ghostTexture = loader.load(new URL('./assets/obstacles/ghost-plush.png', import.meta.url).href);
+  moleTexture.colorSpace = THREE.SRGBColorSpace;
+  ghostTexture.colorSpace = THREE.SRGBColorSpace;
   const head = new THREE.Mesh(
     new THREE.PlaneGeometry(92, 78),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.04 })
+    new THREE.MeshBasicMaterial({ map: activeTheme === 'night' ? ghostTexture : moleTexture, transparent: true, alphaTest: 0.04 })
   );
   head.position.set(0, 18, 2);
   group.add(dirt, head);
@@ -1481,7 +1601,7 @@ function createMole() {
     body
   );
   collider.setEnabled(false);
-  return { group, dirt, head, body, collider, phase: 'hidden', timer: 1.2, hit: 0 };
+  return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
 }
 
 function resetMole() {
@@ -1492,21 +1612,67 @@ function resetMole() {
   console.assert(!mole.collider.isEnabled(), 'mole reset failed');
 }
 
+function ghostStep(x, direction, dt) {
+  const next = x + direction * GHOST_SPEED * dt;
+  if (direction > 0 && next >= EDGE_SOFT_LIMIT) return { x: EDGE_SOFT_LIMIT, direction: -1 };
+  if (direction < 0 && next <= -EDGE_SOFT_LIMIT) return { x: -EDGE_SOFT_LIMIT, direction: 1 };
+  return { x: next, direction };
+}
+
+console.assert(ghostStep(140, 1, 0.1).direction === -1, 'ghost turn failed');
+
+function updateGhost(dt) {
+  mole.timer -= dt;
+  mole.hit = Math.max(0, mole.hit - dt);
+  if (mole.phase === 'hidden') {
+    if (mole.timer > 0) return;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    mole.direction = -side;
+    mole.flightY = cameraY - THREE.MathUtils.randFloat(190, 330);
+    mole.group.position.set(side * (WIDTH / 2 + 55), mole.flightY, 15);
+    mole.group.visible = true;
+    mole.dirt.visible = false;
+    mole.collider.setEnabled(true);
+    mole.phase = 'flying';
+    mole.timer = GHOST_FLY_TIME;
+  } else if (mole.timer <= 0) {
+    mole.phase = 'hidden';
+    mole.timer = THREE.MathUtils.randFloat(0.7, 1.3);
+    mole.group.visible = false;
+    mole.collider.setEnabled(false);
+    return;
+  }
+
+  const step = ghostStep(mole.group.position.x, mole.direction, dt);
+  mole.direction = step.direction;
+  const y = mole.flightY + Math.sin(raceElapsed * 4) * 6;
+  mole.group.position.set(step.x, y, 15);
+  mole.body.setNextKinematicTranslation({ x: step.x, y, z: 15 });
+  const squash = mole.hit ? Math.sin(mole.hit / 0.18 * Math.PI) * 0.35 : 0;
+  mole.head.scale.set(1 + squash, 1 - squash * 0.45, 1);
+  mole.head.position.y = 18;
+}
+
 function updateMole(dt) {
   if (!running) return;
+  if (activeTheme === 'night') {
+    updateGhost(dt);
+    return;
+  }
   mole.timer -= dt;
   mole.hit = Math.max(0, mole.hit - dt);
   if (mole.timer <= 0) {
     if (mole.phase === 'hidden') {
       const x = THREE.MathUtils.randFloat(-125, 125);
       const y = cameraY - THREE.MathUtils.randFloat(190, 330);
-      if (isRiverZone(y)) {
+      if (!canSpawnObstacle(activeTheme, y)) {
         mole.timer = 0.25;
         return;
       }
       mole.body.setNextKinematicTranslation({ x, y, z: 15 });
       mole.group.position.set(x, y, 15);
       mole.group.visible = true;
+      mole.dirt.visible = activeTheme === 'day';
       mole.phase = 'warning';
       mole.timer = 0.5;
     } else if (mole.phase === 'warning') {
@@ -1526,6 +1692,7 @@ function updateMole(dt) {
   const pop = warning ? 0.01 : Math.min(1, (MOLE_UP_TIME - mole.timer) * 7, mole.timer * 7);
   const squash = mole.hit ? Math.sin(mole.hit / 0.18 * Math.PI) * 0.35 : 0;
   mole.head.scale.set(1 + squash, Math.max(0.01, pop - squash * 0.45), 1);
+  mole.head.position.y = 18;
 }
 
 function createRacer(index) {
@@ -1591,6 +1758,7 @@ function recoverStalledRacer(racer) {
 }
 
 function resetRace() {
+  applyTheme(themeMode);
   running = false;
   finished = false;
   raceElapsed = 0;
@@ -1896,6 +2064,7 @@ async function boot() {
   }
   makeWall();
   mole = createMole();
+  applyTheme(themeSelect.value);
   racers = KEYS.map((_, index) => createRacer(index));
   characterPreviews = renderCharacterPreviews();
   syncCharacterOptions();
@@ -1978,6 +2147,7 @@ setupForm.addEventListener('submit', (event) => {
   }
   soundEnabled = document.querySelector('#sound-toggle').checked;
   hapticEnabled = document.querySelector('#haptic-toggle').checked;
+  applyTheme(themeSelect.value);
   const characterKeys = participants.map(({ character }) => character);
   raceQuestion.textContent = decisionQuestion.value.trim();
   setParticipants(names, characterKeys);
@@ -2040,6 +2210,10 @@ characterPickers.forEach((picker, index) => {
   });
 });
 nameInputs.forEach((input) => input.addEventListener('input', syncCharacterOptions));
+themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
+setInterval(() => {
+  if (themeMode === 'auto' && themeForMode('auto') !== activeTheme) applyTheme('auto');
+}, 60000);
 syncCharacterOptions();
 document.querySelector('#replay').addEventListener('click', () => {
   resetRace();
