@@ -5,16 +5,24 @@ import { gsap } from 'gsap';
 const WIDTH = 390;
 const HEIGHT = 844;
 const START_LINE_Y = 360;
+const START_Y = START_LINE_Y - 55;
 const FLOOR_Y = 2350;
 const COURSE_HEIGHT = 2800;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
+const ROLL_SPEED = 1.3;
+const CATCH_UP_GAP = 48;
+const CATCH_UP_BOOST = 1.24;
+const NIGHT_START = 19;
+const NIGHT_END = 6;
 const WALL_Z = -5;
 const GRIP_Z = WALL_Z + 10;
 const RACER_GAP_X = 78;
 const EDGE_SOFT_LIMIT = 145;
 const EDGE_INWARD_FORCE = 18;
 const MOLE_UP_TIME = 3;
+const GHOST_FLY_TIME = 6;
+const GHOST_SPEED = 155;
 const RIVER_TOP_Y = 1350;
 const RIVER_BOTTOM_Y = 1780;
 const BRIDGE_HALF_WIDTH = 64;
@@ -56,6 +64,7 @@ const setupForm = document.querySelector('#setup-form');
 const setupSubmit = document.querySelector('#setup-submit');
 const setupDescription = document.querySelector('#setup-description');
 const decisionQuestion = document.querySelector('#decision-question');
+const themeSelect = document.querySelector('#theme-mode');
 const nameInputs = [...setupForm.elements.namedItem('name')];
 const characterSelects = [...setupForm.elements.namedItem('character')];
 const participants = [...document.querySelectorAll('.participant')];
@@ -92,9 +101,16 @@ let motionListening = false;
 let lastMotionMagnitude;
 let shakeBoostUntil = 0;
 let lastShakeAt = 0;
+let themeMode = 'auto';
+let activeTheme = themeForMode(themeMode);
+let courseWall;
+let courseMarkers;
+let courseNightMarkers;
+let dayCourseTexture;
+let nightCourseTexture;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8de8ee);
+scene.background = new THREE.Color();
 const camera = new THREE.OrthographicCamera(-WIDTH / 2, WIDTH / 2, HEIGHT / 2, -HEIGHT / 2, 0.1, 1000);
 camera.position.set(0, 0, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -102,13 +118,41 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 game.prepend(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x756477, 2.2));
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x756477, 2.2);
+scene.add(hemisphereLight);
 const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
 keyLight.position.set(-160, 250, 300);
 scene.add(keyLight);
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const motionScale = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
+
+function themeForMode(mode, hour = new Date().getHours()) {
+  return mode === 'auto' ? (hour >= NIGHT_START || hour < NIGHT_END ? 'night' : 'day') : mode;
+}
+
+console.assert(themeForMode('auto', 22) === 'night' && themeForMode('auto', 12) === 'day', 'auto theme failed');
+
+function applyTheme(mode) {
+  themeMode = mode;
+  activeTheme = themeForMode(mode);
+  const night = activeTheme === 'night';
+  document.documentElement.dataset.theme = activeTheme;
+  scene.background.set(night ? 0x101936 : 0x8de8ee);
+  hemisphereLight.intensity = night ? 1.35 : 2.2;
+  keyLight.intensity = night ? 1.45 : 2.2;
+  if (courseWall) {
+    courseWall.material.map = night ? nightCourseTexture : dayCourseTexture;
+    courseWall.material.needsUpdate = true;
+    courseMarkers.visible = !night;
+    courseNightMarkers.visible = night;
+  }
+  if (mole) {
+    mole.head.material.map = night ? mole.ghostTexture : mole.moleTexture;
+    mole.head.material.needsUpdate = true;
+    mole.dirt.visible = !night && mole.group.visible;
+  }
+}
 
 function motionMagnitude(acceleration) {
   return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
@@ -187,6 +231,14 @@ function screenToWorldY(screenY) {
   return HEIGHT / 2 - screenY;
 }
 
+function catchUpIndex(progressY) {
+  const leader = Math.min(...progressY);
+  const last = Math.max(...progressY);
+  return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
+}
+
+console.assert(catchUpIndex([0, 20, 60]) === 2 && catchUpIndex([0, 20]) === -1, 'catch-up selection failed');
+
 function isRiverZone(worldY) {
   const courseY = HEIGHT / 2 - worldY;
   return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y;
@@ -196,8 +248,13 @@ function isWater(x, worldY) {
   return isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
 }
 
+function canSpawnObstacle(theme, worldY) {
+  return theme === 'night' || !isRiverZone(worldY);
+}
+
 console.assert(isRiverZone(screenToWorldY(1500)) && !isRiverZone(screenToWorldY(1200)), 'river zone failed');
 console.assert(!isWater(0, screenToWorldY(1500)) && isWater(100, screenToWorldY(1500)), 'bridge zone failed');
+console.assert(canSpawnObstacle('night', screenToWorldY(1500)), 'night obstacle river spawn failed');
 
 function makeWall() {
   const canvas = document.createElement('canvas');
@@ -1097,18 +1154,14 @@ function makeWall() {
   // ------------------------------------------------------------
   // Three.js texture
   // ------------------------------------------------------------
-  const texture = new THREE.TextureLoader().load(
-    new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href
-  );
-
-  texture.colorSpace =
-    THREE.SRGBColorSpace;
-
-  texture.minFilter =
-    THREE.LinearFilter;
-
-  texture.magFilter =
-    THREE.LinearFilter;
+  const textureLoader = new THREE.TextureLoader();
+  dayCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href);
+  nightCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course-night.png', import.meta.url).href);
+  for (const texture of [dayCourseTexture, nightCourseTexture]) {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  }
 
   const wall =
     new THREE.Mesh(
@@ -1117,7 +1170,7 @@ function makeWall() {
         canvas.height
       ),
       new THREE.MeshBasicMaterial({
-        map: texture,
+        map: activeTheme === 'night' ? nightCourseTexture : dayCourseTexture,
         depthTest: false,
         depthWrite: false
       })
@@ -1132,6 +1185,7 @@ function makeWall() {
   );
 
   wall.renderOrder = -100;
+  courseWall = wall;
 
   const markers = new THREE.Mesh(
     new THREE.PlaneGeometry(WIDTH, canvas.height),
@@ -1144,8 +1198,83 @@ function makeWall() {
   );
   markers.position.set(0, wall.position.y, WALL_Z - 2);
   markers.renderOrder = -99;
+  markers.visible = activeTheme !== 'night';
+  courseMarkers = markers;
 
-  scene.add(wall, markers);
+  const nightMarkerCanvas = document.createElement('canvas');
+  nightMarkerCanvas.width = WIDTH;
+  nightMarkerCanvas.height = canvas.height;
+  const nightMarkerContext = nightMarkerCanvas.getContext('2d');
+  nightMarkerContext.textAlign = 'center';
+  nightMarkerContext.font = '800 15px Jua, system-ui';
+  nightMarkerContext.lineCap = 'round';
+
+  nightMarkerContext.save();
+  nightMarkerContext.shadowColor = '#b9ddff';
+  nightMarkerContext.shadowBlur = 12;
+  nightMarkerContext.strokeStyle = 'rgba(185, 221, 255, 0.34)';
+  nightMarkerContext.lineWidth = 10;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.moveTo(markerX, START_LINE_Y);
+  nightMarkerContext.lineTo(markerX + markerWidth, START_LINE_Y);
+  nightMarkerContext.stroke();
+  nightMarkerContext.strokeStyle = '#d9efff';
+  nightMarkerContext.lineWidth = 3;
+  nightMarkerContext.setLineDash([7, 10]);
+  nightMarkerContext.stroke();
+  nightMarkerContext.restore();
+
+  nightMarkerContext.fillStyle = '#17264bdd';
+  nightMarkerContext.strokeStyle = '#d9efff';
+  nightMarkerContext.lineWidth = 2;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.roundRect(WIDTH / 2 - 27, START_LINE_Y - 34, 54, 23, 8);
+  nightMarkerContext.fill();
+  nightMarkerContext.stroke();
+  nightMarkerContext.fillStyle = '#fff6ca';
+  nightMarkerContext.fillText('출발', WIDTH / 2, START_LINE_Y - 17);
+
+  nightMarkerContext.save();
+  nightMarkerContext.shadowColor = '#fff4a8';
+  nightMarkerContext.shadowBlur = 13;
+  nightMarkerContext.strokeStyle = 'rgba(219, 232, 255, 0.35)';
+  nightMarkerContext.lineWidth = 2;
+  nightMarkerContext.beginPath();
+  nightMarkerContext.moveTo(markerX, FLOOR_Y);
+  nightMarkerContext.lineTo(markerX + markerWidth, FLOOR_Y);
+  nightMarkerContext.stroke();
+  nightMarkerContext.fillStyle = '#fff4a8';
+  for (let index = 0; index < 13; index += 1) {
+    const x = markerX + index * markerWidth / 12;
+    const radius = index % 2 ? 3 : 5;
+    nightMarkerContext.beginPath();
+    for (let point = 0; point < 10; point += 1) {
+      const angle = -Math.PI / 2 + point * Math.PI / 5;
+      const distance = point % 2 ? radius * 0.42 : radius;
+      const px = x + Math.cos(angle) * distance;
+      const py = FLOOR_Y + Math.sin(angle) * distance;
+      if (point === 0) nightMarkerContext.moveTo(px, py);
+      else nightMarkerContext.lineTo(px, py);
+    }
+    nightMarkerContext.closePath();
+    nightMarkerContext.fill();
+  }
+  nightMarkerContext.restore();
+  nightMarkerContext.fillStyle = '#fff6ca';
+  nightMarkerContext.fillText('도착', WIDTH / 2, FLOOR_Y - 15);
+
+  const nightMarkerTexture = new THREE.CanvasTexture(nightMarkerCanvas);
+  nightMarkerTexture.colorSpace = THREE.SRGBColorSpace;
+  const nightMarkers = new THREE.Mesh(
+    new THREE.PlaneGeometry(WIDTH, canvas.height),
+    new THREE.MeshBasicMaterial({ map: nightMarkerTexture, transparent: true, depthTest: true, depthWrite: false })
+  );
+  nightMarkers.position.copy(markers.position);
+  nightMarkers.renderOrder = -99;
+  nightMarkers.visible = activeTheme === 'night';
+  courseNightMarkers = nightMarkers;
+
+  scene.add(wall, markers, nightMarkers);
 }
 
 function clearMountains() {
@@ -1300,11 +1429,13 @@ function makeVisual(key, targetScene = scene) {
     limb(5, 7, [12, 39, 0], 0.25);
   }
 
-  ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark);
-  ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark);
+  const normalEyes = [
+    ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
+    ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
+  ];
   if (key === 'cat') {
-    ball([0.7, 1.2, 0.5], [-6.2, 28.5, 12], new THREE.MeshBasicMaterial({ color: 0x28242c }));
-    ball([0.7, 1.2, 0.5], [6.2, 28.5, 12], new THREE.MeshBasicMaterial({ color: 0x28242c }));
+    const pupil = new THREE.MeshBasicMaterial({ color: 0x28242c });
+    normalEyes.push(ball([0.7, 1.2, 0.5], [-6.2, 28.5, 12], pupil), ball([0.7, 1.2, 0.5], [6.2, 28.5, 12], pupil));
   }
   if (key === 'duck') accents.push(ball([5.8, 2.9, 2.4], [0, 22, 12], orange));
   else ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' ? pink : dark);
@@ -1315,13 +1446,62 @@ function makeVisual(key, targetScene = scene) {
 
   const tailSize = key === 'rabbit' ? 6 : key === 'turtle' ? 3 : 4.5;
   ball([tailSize, tailSize, 3], [0, -3, -10], fur);
+
+  const faceGroup = () => {
+    const face = new THREE.Group();
+    face.visible = false;
+    doll.add(face);
+    return face;
+  };
+  const stroke = (face, x, y, rotation, length = 4) => {
+    const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), dark);
+    line.position.set(x, y, 12.5);
+    line.rotation.z = rotation;
+    face.add(line);
+  };
+  const roundMouth = (face) => {
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(2, 0.65, 6, 16), dark);
+    mouth.position.set(0, 20, 12.5);
+    face.add(mouth);
+  };
+
+  const readyFace = faceGroup();
+  stroke(readyFace, -6.2, 33, -1.3, 4.5);
+  stroke(readyFace, 6.2, 33, 1.3, 4.5);
+  roundMouth(readyFace);
+
+  const hitFace = faceGroup();
+  stroke(hitFace, -6.2, 29.8, 0.75);
+  stroke(hitFace, -6.2, 27.2, -0.75);
+  stroke(hitFace, 6.2, 29.8, -0.75);
+  stroke(hitFace, 6.2, 27.2, 0.75);
+  roundMouth(hitFace);
+
+  const resultFace = faceGroup();
+  stroke(resultFace, -7.5, 28.5, -0.75);
+  stroke(resultFace, -4.9, 28.5, 0.75);
+  stroke(resultFace, 4.9, 28.5, -0.75);
+  stroke(resultFace, 7.5, 28.5, 0.75);
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.7, 6, 18, Math.PI), dark);
+  smile.position.set(0, 22, 12.5);
+  smile.rotation.z = Math.PI;
+  resultFace.add(smile);
+
   accents.forEach((part) => {
     part.userData.baseRotationZ = part.rotation.z;
     part.userData.baseScaleY = part.scale.y;
   });
-  group.userData = { doll, accents, key };
+  group.userData = { doll, accents, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
   targetScene.add(group);
   return group;
+}
+
+function setExpression(visual, expression = 'neutral') {
+  const { faces } = visual.userData;
+  faces.normalEyes.forEach((eye) => { eye.visible = expression !== 'hit' && expression !== 'result'; });
+  faces.ready.visible = expression === 'ready';
+  faces.hit.visible = expression === 'hit';
+  faces.result.visible = expression === 'result';
 }
 
 function renderCharacterPreviews() {
@@ -1340,8 +1520,12 @@ function renderCharacterPreviews() {
   CHARACTER_KEYS.forEach((key) => {
     const model = makeVisual(key, previewScene);
     model.rotation.y = -0.08;
+    setExpression(model, 'ready');
     previewRenderer.render(previewScene, previewCamera);
-    previews[key] = previewRenderer.domElement.toDataURL('image/png');
+    const ready = previewRenderer.domElement.toDataURL('image/png');
+    setExpression(model, 'result');
+    previewRenderer.render(previewScene, previewCamera);
+    previews[key] = { ready, result: previewRenderer.domElement.toDataURL('image/png') };
     previewScene.remove(model);
     model.traverse((part) => {
       if (!part.isMesh) return;
@@ -1462,11 +1646,14 @@ function createMole() {
   const dirt = new THREE.Mesh(new THREE.SphereGeometry(22, 16, 8), brown);
   dirt.scale.set(1.5, 0.22, 0.45);
   dirt.position.z = -2;
-  const texture = new THREE.TextureLoader().load(new URL('./assets/obstacles/mole-plush.png', import.meta.url).href);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const loader = new THREE.TextureLoader();
+  const moleTexture = loader.load(new URL('./assets/obstacles/mole-plush.png', import.meta.url).href);
+  const ghostTexture = loader.load(new URL('./assets/obstacles/ghost-plush.png', import.meta.url).href);
+  moleTexture.colorSpace = THREE.SRGBColorSpace;
+  ghostTexture.colorSpace = THREE.SRGBColorSpace;
   const head = new THREE.Mesh(
     new THREE.PlaneGeometry(92, 78),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.04 })
+    new THREE.MeshBasicMaterial({ map: activeTheme === 'night' ? ghostTexture : moleTexture, transparent: true, alphaTest: 0.04 })
   );
   head.position.set(0, 18, 2);
   group.add(dirt, head);
@@ -1480,7 +1667,7 @@ function createMole() {
     body
   );
   collider.setEnabled(false);
-  return { group, dirt, head, body, collider, phase: 'hidden', timer: 1.2, hit: 0 };
+  return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
 }
 
 function resetMole() {
@@ -1491,21 +1678,67 @@ function resetMole() {
   console.assert(!mole.collider.isEnabled(), 'mole reset failed');
 }
 
+function ghostStep(x, direction, dt) {
+  const next = x + direction * GHOST_SPEED * dt;
+  if (direction > 0 && next >= EDGE_SOFT_LIMIT) return { x: EDGE_SOFT_LIMIT, direction: -1 };
+  if (direction < 0 && next <= -EDGE_SOFT_LIMIT) return { x: -EDGE_SOFT_LIMIT, direction: 1 };
+  return { x: next, direction };
+}
+
+console.assert(ghostStep(140, 1, 0.1).direction === -1, 'ghost turn failed');
+
+function updateGhost(dt) {
+  mole.timer -= dt;
+  mole.hit = Math.max(0, mole.hit - dt);
+  if (mole.phase === 'hidden') {
+    if (mole.timer > 0) return;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    mole.direction = -side;
+    mole.flightY = cameraY - THREE.MathUtils.randFloat(190, 330);
+    mole.group.position.set(side * (WIDTH / 2 + 55), mole.flightY, 15);
+    mole.group.visible = true;
+    mole.dirt.visible = false;
+    mole.collider.setEnabled(true);
+    mole.phase = 'flying';
+    mole.timer = GHOST_FLY_TIME;
+  } else if (mole.timer <= 0) {
+    mole.phase = 'hidden';
+    mole.timer = THREE.MathUtils.randFloat(0.7, 1.3);
+    mole.group.visible = false;
+    mole.collider.setEnabled(false);
+    return;
+  }
+
+  const step = ghostStep(mole.group.position.x, mole.direction, dt);
+  mole.direction = step.direction;
+  const y = mole.flightY + Math.sin(raceElapsed * 4) * 6;
+  mole.group.position.set(step.x, y, 15);
+  mole.body.setNextKinematicTranslation({ x: step.x, y, z: 15 });
+  const squash = mole.hit ? Math.sin(mole.hit / 0.18 * Math.PI) * 0.35 : 0;
+  mole.head.scale.set(1 + squash, 1 - squash * 0.45, 1);
+  mole.head.position.y = 18;
+}
+
 function updateMole(dt) {
   if (!running) return;
+  if (activeTheme === 'night') {
+    updateGhost(dt);
+    return;
+  }
   mole.timer -= dt;
   mole.hit = Math.max(0, mole.hit - dt);
   if (mole.timer <= 0) {
     if (mole.phase === 'hidden') {
       const x = THREE.MathUtils.randFloat(-125, 125);
       const y = cameraY - THREE.MathUtils.randFloat(190, 330);
-      if (isRiverZone(y)) {
+      if (!canSpawnObstacle(activeTheme, y)) {
         mole.timer = 0.25;
         return;
       }
       mole.body.setNextKinematicTranslation({ x, y, z: 15 });
       mole.group.position.set(x, y, 15);
       mole.group.visible = true;
+      mole.dirt.visible = activeTheme === 'day';
       mole.phase = 'warning';
       mole.timer = 0.5;
     } else if (mole.phase === 'warning') {
@@ -1525,6 +1758,7 @@ function updateMole(dt) {
   const pop = warning ? 0.01 : Math.min(1, (MOLE_UP_TIME - mole.timer) * 7, mole.timer * 7);
   const squash = mole.hit ? Math.sin(mole.hit / 0.18 * Math.PI) * 0.35 : 0;
   mole.head.scale.set(1 + squash, Math.max(0.01, pop - squash * 0.45), 1);
+  mole.head.position.y = 18;
 }
 
 function createRacer(index) {
@@ -1532,7 +1766,7 @@ function createRacer(index) {
   const initialGrip = 0.65 + Math.random() * 0.25;
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(x, screenToWorldY(150), 5)
+      .setTranslation(x, screenToWorldY(START_Y), 5)
       .setLinearDamping(0.35)
       .setAngularDamping(0.7)
       .setCcdEnabled(true)
@@ -1556,7 +1790,7 @@ function createRacer(index) {
     isFlipping: false,
     knockbackUntil: 0,
     stickDuration: initialGrip,
-    lastProgressY: screenToWorldY(150),
+    lastProgressY: screenToWorldY(START_Y),
     stalledFor: 0,
     placed: false,
     active: true
@@ -1564,6 +1798,7 @@ function createRacer(index) {
   START_PADS[index].forEach((pad) => attachPad(racer, pad));
   racer.lastProgressY = anchorProgressY(racer);
   racer.knockbackUntil = 0;
+  racer.expressionUntil = 0;
   body.setAngvel({ x: 0, y: 0, z: 0.05 * (index % 2 ? 1 : -1) }, true);
   return racer;
 }
@@ -1590,6 +1825,7 @@ function recoverStalledRacer(racer) {
 }
 
 function resetRace() {
+  applyTheme(themeMode);
   running = false;
   finished = false;
   raceElapsed = 0;
@@ -1602,12 +1838,15 @@ function resetRace() {
   resetMole();
   const active = racers.filter((racer) => racer.active);
   active.forEach((racer, index) => {
-    placeRacer(racer, (index - (active.length - 1) / 2) * RACER_GAP_X, screenToWorldY(150));
+    placeRacer(racer, (index - (active.length - 1) / 2) * RACER_GAP_X, screenToWorldY(START_Y));
     racer.placed = false;
     racer.isFlipping = false;
     racer.stickDuration = 0;
     racer.gripElapsed = 0;
     racer.stalledFor = 0;
+    racer.knockbackUntil = 0;
+    racer.expressionUntil = 0;
+    setExpression(racer.visual, 'ready');
   });
   status.textContent = '준비';
   raceTimer.textContent = '00:00.00';
@@ -1667,7 +1906,7 @@ function nearestOpenPosition(racer, targetX, targetY) {
           }
           const scale = 1.001 / distance;
           x = THREE.MathUtils.clamp(x + dx * (scale - 1), -160, 160);
-          y = THREE.MathUtils.clamp(y + dy * (scale - 1), screenToWorldY(START_LINE_Y - 55), screenToWorldY(105));
+          y = THREE.MathUtils.clamp(y + dy * (scale - 1), screenToWorldY(START_Y), screenToWorldY(105));
         });
       });
     });
@@ -1700,7 +1939,7 @@ renderer.domElement.addEventListener('pointermove', (event) => {
   const position = nearestOpenPosition(
     draggedRacer,
     THREE.MathUtils.clamp(point.x, -160, 160),
-    THREE.MathUtils.clamp(point.y, screenToWorldY(START_LINE_Y - 55), screenToWorldY(105))
+    THREE.MathUtils.clamp(point.y, screenToWorldY(START_Y), screenToWorldY(105))
   );
   placeRacer(draggedRacer, position.x, position.y);
 });
@@ -1710,10 +1949,16 @@ renderer.domElement.addEventListener('pointercancel', () => { draggedRacer = nul
 function syncVisuals(dt) {
   let lowest = Infinity;
   if (running) raceElapsed = (performance.now() - raceStartedAt) / 1000;
+  const activeRacers = racers.filter((racer) => racer.active);
+  const boostedRacer = activeRacers[catchUpIndex(activeRacers.map((racer) => racer.body.translation().y))];
   racers.forEach((racer) => {
     if (!racer.active) return;
     const position = racer.body.translation();
     const rotation = racer.body.rotation();
+    if (running && racer.expressionUntil && raceElapsed >= racer.expressionUntil) {
+      racer.expressionUntil = 0;
+      setExpression(racer.visual);
+    }
     racer.visual.position.set(position.x, position.y, position.z);
     racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     const sticking = racer.anchors.length > 1 && !racer.isFlipping && racer.gripElapsed < 0;
@@ -1749,7 +1994,8 @@ function syncVisuals(dt) {
         recoverStalledRacer(racer);
       }
       const shakeBoosted = performance.now() < shakeBoostUntil;
-      const speed = shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1;
+      const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
+      const speed = ROLL_SPEED * catchUpBoost * (shakeBoosted ? 3.2 : raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
       racer.gripElapsed += dt * speed;
       const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
       const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
@@ -1758,7 +2004,7 @@ function syncVisuals(dt) {
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
         const slowedByWater = isWater(position.x, position.y);
-        const rollingSpeed = (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
+        const rollingSpeed = ROLL_SPEED * catchUpBoost * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
         if (knockedBack) {
           racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
         } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
@@ -1796,7 +2042,7 @@ function syncVisuals(dt) {
     const target = Math.min(0, lowest + 220);
     cameraY += (target - cameraY) * Math.min(1, dt * 3.2);
     camera.position.y = cameraY;
-    const progress = Math.max(0, Math.min(99, Math.round((screenToWorldY(150) - lowest) / (FLOOR_Y - 150) * 100)));
+    const progress = Math.max(0, Math.min(99, Math.round((screenToWorldY(START_Y) - lowest) / (FLOOR_Y - START_Y) * 100)));
     const minutes = Math.floor(raceElapsed / 60);
     const seconds = Math.floor(raceElapsed % 60);
     const hundredths = Math.floor(raceElapsed * 100) % 100;
@@ -1813,12 +2059,13 @@ function syncVisuals(dt) {
 function finishRace(racer) {
   finished = true;
   running = false;
+  setExpression(racer.visual, 'result');
   status.textContent = '선택 완료';
   guide.hidden = true;
   resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
-  resultCharacterImage.src = characterPreviews[racer.characterKey];
+  resultCharacterImage.src = characterPreviews[racer.characterKey].result;
   resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
-  resultSpeech.textContent = `내가 고른 건\n${racer.label.textContent}이야!`;
+  resultSpeech.textContent = `내 선택은 이거야!\n${racer.label.textContent}`;
   const comments = ['데굴이가 하나를 골랐어요.', '고민 끝! 이걸로 가볼까요?', '가장 먼저 내려온 데굴이의 선택이에요.'];
   resultComments = comments;
   commentIndex = Math.floor(Math.random() * comments.length);
@@ -1868,6 +2115,7 @@ async function startRace() {
   buzz([60, 35, 90]);
   raceElapsed = 0;
   raceStartedAt = performance.now();
+  racers.filter((racer) => racer.active).forEach((racer) => setExpression(racer.visual));
   running = true;
   await wait(450);
   raceStart.hidden = true;
@@ -1895,6 +2143,7 @@ async function boot() {
   }
   makeWall();
   mole = createMole();
+  applyTheme(themeSelect.value);
   racers = KEYS.map((_, index) => createRacer(index));
   characterPreviews = renderCharacterPreviews();
   syncCharacterOptions();
@@ -1903,6 +2152,7 @@ async function boot() {
   setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
   gsap.from('#setup-form', { opacity: 0, duration: 0.5 * motionScale, ease: 'power2.out' });
   gsap.from('.hero-title img', { scale: 0.8, opacity: 0.2, duration: 0.8 * motionScale, ease: 'back.out(1.6)' });
+  gsap.fromTo(setupDescription, { opacity: 0.12 }, { opacity: 1, duration: 0.35 * motionScale });
   if (motionScale) gsap.to('.story-marquee-track', { xPercent: -50, duration: 22, repeat: -1, ease: 'none' });
 
   let previous = performance.now();
@@ -1940,6 +2190,8 @@ async function boot() {
             while (racer.anchors.length > 1) detachPad(racer, racer.anchors[0]);
             if (!racer.isFlipping) beginFlip(racer);
             racer.knockbackUntil = raceElapsed + 0.65;
+            racer.expressionUntil = raceElapsed + 0.7;
+            setExpression(racer.visual, 'hit');
             racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
             mole.hit = 0.18;
             gsap.fromTo(game, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
@@ -1976,6 +2228,7 @@ setupForm.addEventListener('submit', (event) => {
   }
   soundEnabled = document.querySelector('#sound-toggle').checked;
   hapticEnabled = document.querySelector('#haptic-toggle').checked;
+  applyTheme(themeSelect.value);
   const characterKeys = participants.map(({ character }) => character);
   raceQuestion.textContent = decisionQuestion.value.trim();
   setParticipants(names, characterKeys);
@@ -1997,7 +2250,7 @@ function syncCharacterOptions() {
     characterPickers[index].setAttribute('aria-disabled', String(disabled));
     characterPickers[index].querySelectorAll('button').forEach((button) => { button.disabled = disabled; });
     characterPreviewLabels[index].textContent = active[index] ? CHARACTER_NAMES[select.value] : '이름 입력 후 선택';
-    if (characterPreviews[select.value]) characterPreviewImages[index].src = characterPreviews[select.value];
+    if (characterPreviews[select.value]) characterPreviewImages[index].src = characterPreviews[select.value].ready;
   });
 }
 characterSelects.forEach((select, index) => {
@@ -2038,6 +2291,10 @@ characterPickers.forEach((picker, index) => {
   });
 });
 nameInputs.forEach((input) => input.addEventListener('input', syncCharacterOptions));
+themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
+setInterval(() => {
+  if (themeMode === 'auto' && themeForMode('auto') !== activeTheme) applyTheme('auto');
+}, 60000);
 syncCharacterOptions();
 document.querySelector('#replay').addEventListener('click', () => {
   resetRace();

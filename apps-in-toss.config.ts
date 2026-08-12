@@ -1,7 +1,7 @@
 import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
-  appName: 'rollie_pick',
+  appName: 'rollie-pick',
   brand: {
     primaryColor: '#44374B',
   },
