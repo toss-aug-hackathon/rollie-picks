@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true,
@@ -12,5 +13,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["code/**/*", "apps-in-toss.config.ts", "vite.config.ts"]
+  "include": ["src/**/*", "apps-in-toss.config.ts", "vite.config.ts"]
 }
