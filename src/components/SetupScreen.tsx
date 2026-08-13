@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useToast } from '@toss/tds-mobile';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '../game/engine';
 import { triggerHaptic } from '../utils/feedback';
 
@@ -42,7 +43,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   onSubmit,
   characterPreviews
 }) => {
-  const [toastMessage, setToastMessage] = useState('');
+  const { openToast } = useToast();
+
+  const showValidationToast = (message: string) => {
+    openToast(message, {
+      type: 'bottom',
+      duration: 3000,
+      higherThanCTA: true,
+    });
+  };
 
   const handleNameChange = (index: number, newName: string) => {
     const limitedName = newName.slice(0, PARTICIPANT_MAX_LENGTH);
@@ -85,12 +94,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim()) {
-      setToastMessage('고민 제목을 적어주세요.');
+      showValidationToast('고민 제목을 적어주세요.');
       return;
     }
 
     if (!participants[0].name.trim() || !participants[1].name.trim()) {
-      setToastMessage('선택지 2개를 모두 적어주세요.');
+      showValidationToast('선택지 2개를 모두 적어주세요.');
       return;
     }
 
@@ -213,11 +222,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           </button>
         </footer>
       </form>
-      {toastMessage && (
-        <div className="setup-toast" role="alert" onAnimationEnd={() => setToastMessage('')}>
-          {toastMessage}
-        </div>
-      )}
     </section>
   );
 };
