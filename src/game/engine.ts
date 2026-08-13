@@ -2,18 +2,16 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { gsap } from 'gsap';
 import { createCourse } from './course';
+import { triggerHaptic } from '../utils/feedback';
 
 const WIDTH = 390;
 const HEIGHT = 844;
 const START_LINE_Y = 360;
 const START_Y = START_LINE_Y - 55;
-// Keep the supplied 836x1881 course artwork at its original aspect ratio
-// instead of stretching it to an arbitrary tall gameplay plane.
-const COURSE_HEIGHT = Math.round(WIDTH * (1881 / 836));
-const FLOOR_Y = COURSE_HEIGHT - 48;
+const FLOOR_Y = 2350;
+const COURSE_HEIGHT = 2800;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
-const MOLE_UP_TIME = 2.2;
 const ROLL_SPEED = 1.3;
 const CATCH_UP_GAP = 48;
 const CATCH_UP_BOOST = 1.24;
@@ -24,14 +22,28 @@ const GRIP_Z = WALL_Z + 10;
 const RACER_GAP_X = 78;
 const EDGE_SOFT_LIMIT = 145;
 const EDGE_INWARD_FORCE = 18;
+const MOLE_UP_TIME = 3;
 const GHOST_FLY_TIME = 6;
 const GHOST_SPEED = 155;
-const RIVER_TOP_Y = 430;
-const RIVER_BOTTOM_Y = 585;
+const RIVER_TOP_Y = 1350;
+const RIVER_BOTTOM_Y = 1780;
 const BRIDGE_HALF_WIDTH = 64;
 const WATER_SPEED = 0.72;
+const RACER_TOP_CLEARANCE = 50;
+const DRAG_VISUAL_Z_OFFSET = 40;
+const PLACEMENT_SETTLE_DURATION = 0.22;
+const FINISH_RESULT_DELAY = 800;
 
-export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'ghost' | 'mole';
+const PLACEMENT_PARTS = [
+  { x: 0, y: 25, rx: 22, ry: 20 },
+  { x: 0, y: -3, rx: 19, ry: 25 },
+  { x: -23, y: 13, rx: 16, ry: 10 },
+  { x: 23, y: 13, rx: 16, ry: 10 },
+  { x: -10, y: -32, rx: 10, ry: 18 },
+  { x: 10, y: -32, rx: 10, ry: 18 }
+];
+
+export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle' | 'dog' | 'fox' | 'panda' | 'pig' | 'hamster';
 export type ThemeMode = 'auto' | 'day' | 'night';
 export type CharacterPreviewMap = Partial<Record<CharacterKey, string>>;
 
@@ -56,11 +68,26 @@ export const CHARACTER_DATA: Record<CharacterKey, { name: string; icon: string; 
   rabbit: { name: '토끼', icon: '🐰', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'rabbit' },
   cat: { name: '고양이', icon: '🐱', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'cat' },
   duck: { name: '오리', icon: '🐥', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'duck' },
-  ghost: { name: '유령', icon: '👻', preview: 'assets/ghost-plush-PG6yuj_G.webp', modelType: 'ghost' },
-  mole: { name: '두더지', icon: '🦔', preview: 'assets/mole-plush-DJrSbKGU.webp', modelType: 'mole' }
+  turtle: { name: '거북이', icon: '🐢', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'turtle' },
+  dog: { name: '강아지', icon: '🐶', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'dog' },
+  fox: { name: '여우', icon: '🦊', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'fox' },
+  panda: { name: '판다', icon: '🐼', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'panda' },
+  pig: { name: '돼지', icon: '🐷', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'pig' },
+  hamster: { name: '햄스터', icon: '🐹', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'hamster' }
 };
 
-const COLORS: Record<string, number> = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, ghost: 0xffffff, mole: 0x765038 };
+const COLORS: Record<CharacterKey, number> = {
+  bear: 0xc6a27f,
+  rabbit: 0xeee7cf,
+  cat: 0x302e38,
+  duck: 0xf1cd58,
+  turtle: 0x8eb879,
+  dog: 0xc99462,
+  fox: 0xd96b36,
+  panda: 0xf0eee7,
+  pig: 0xe9a2aa,
+  hamster: 0xd9a65d
+};
 const PAD_POINTS = [
   new THREE.Vector3(-27, 27, 0),
   new THREE.Vector3(27, 27, 0),
@@ -80,6 +107,7 @@ export class GameEngine {
   private eventQueue!: RAPIER.EventQueue;
 
   private isInitialized = false;
+  private isDestroyed = false;
   private running = false;
   private finished = false;
   private cameraY = 0;
@@ -94,6 +122,7 @@ export class GameEngine {
   private courseWall?: THREE.Mesh;
   private courseMarkers?: THREE.Object3D;
   private courseNightMarkers?: THREE.Object3D;
+  private courseFinishLine?: THREE.Object3D;
   private dayCourseTexture?: THREE.Texture;
   private nightCourseTexture?: THREE.Texture;
 
@@ -112,7 +141,14 @@ export class GameEngine {
     { name: '오리', characterKey: 'duck' }
   ];
   private countdownToken = 0;
+  private finishTimeoutId: number | null = null;
   private draggedRacer: any = null;
+  private dragOrigin: { x: number; y: number } | null = null;
+  private motionListening = false;
+  private lastMotionMagnitude: number | undefined;
+  private shakeBoostUntil = 0;
+  private lastShakeAt = 0;
+  private lastRacerImpactFeedbackAt = 0;
 
   constructor(options: GameEngineOptions) {
     this.canvas = options.canvas;
@@ -131,6 +167,7 @@ export class GameEngine {
     if (this.isInitialized) return;
 
     await RAPIER.init();
+    if (this.isDestroyed) return;
     this.world = new RAPIER.World({ x: 0, y: -520, z: 0 });
     this.world.timestep = 1 / 60;
     this.eventQueue = new RAPIER.EventQueue(true);
@@ -195,27 +232,37 @@ export class GameEngine {
 
   private makeFabricTexture() {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
+    canvas.width = canvas.height = 256;
     const context = canvas.getContext('2d')!;
-    context.fillStyle = '#e7e2d8';
+    context.fillStyle = '#eeeae2';
     context.fillRect(0, 0, canvas.width, canvas.height);
+    context.lineCap = 'round';
     let seed = 731;
-    for (let i = 0; i < 360; i += 1) {
+    const random = () => {
       seed = (seed * 16807) % 2147483647;
-      const x = seed % canvas.width;
-      seed = (seed * 16807) % 2147483647;
-      const y = seed % canvas.height;
-      seed = (seed * 16807) % 2147483647;
-      const radius = 1.4 + seed % 2.6;
-      context.strokeStyle = i % 3 ? '#b9b3a9' : '#fffaf0';
-      context.lineWidth = 1.2;
+      return seed / 2147483647;
+    };
+    for (let i = 0; i < 1900; i += 1) {
+      const x = random() * canvas.width;
+      const y = random() * canvas.height;
+      const length = 2.5 + random() * 7;
+      const angle = random() * Math.PI * 2;
+      const wave = (random() - 0.5) * 3.5;
+      context.strokeStyle = i % 4 === 0 ? 'rgba(255,255,255,.9)' : i % 3 === 0 ? 'rgba(122,113,104,.48)' : 'rgba(174,165,154,.68)';
+      context.lineWidth = 0.7 + random() * 1.2;
       context.beginPath();
-      context.arc(x, y, radius, 0.2, Math.PI * 1.7);
+      context.moveTo(x, y);
+      context.quadraticCurveTo(
+        x + Math.cos(angle) * length * 0.5 + Math.cos(angle + Math.PI / 2) * wave,
+        y + Math.sin(angle) * length * 0.5 + Math.sin(angle + Math.PI / 2) * wave,
+        x + Math.cos(angle) * length,
+        y + Math.sin(angle) * length
+      );
       context.stroke();
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(3.5, 4.5);
+    texture.repeat.set(2.2, 2.8);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
@@ -230,10 +277,11 @@ export class GameEngine {
       activeTheme: this.activeTheme,
       screenToWorldY: this.screenToWorldY.bind(this)
     });
-    const { wall, markers, nightMarkers, dayCourseTexture, nightCourseTexture } = course as any;
+    const { wall, markers, nightMarkers, finishLine, dayCourseTexture, nightCourseTexture } = course as any;
     this.courseWall = wall;
     this.courseMarkers = markers;
     this.courseNightMarkers = nightMarkers;
+    this.courseFinishLine = finishLine;
     this.dayCourseTexture = dayCourseTexture;
     this.nightCourseTexture = nightCourseTexture;
 
@@ -246,6 +294,9 @@ export class GameEngine {
     if (this.courseNightMarkers) {
       this.scene.add(this.courseNightMarkers);
     }
+    if (this.courseFinishLine) {
+      this.scene.add(this.courseFinishLine);
+    }
   }
 
   private makeVisual(key: CharacterKey, targetScene = this.scene) {
@@ -253,11 +304,30 @@ export class GameEngine {
     const doll = new THREE.Group();
     const accents: THREE.Object3D[] = [];
     group.add(doll);
-    const fur = new THREE.MeshStandardMaterial({ color: COLORS[key] || 0xc6a27f, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 0.8, roughness: 1 });
+    const plushMaterial = (color: number) => new THREE.MeshPhysicalMaterial({
+      color,
+      map: this.fabricTexture,
+      bumpMap: this.fabricTexture,
+      bumpScale: 2.1,
+      roughness: 0.96,
+      sheen: 0.75,
+      sheenRoughness: 0.9,
+      sheenColor: new THREE.Color(0xfff4e6)
+    });
+    const fur = plushMaterial(COLORS[key]);
+    const creamFur = plushMaterial(0xeee1ca);
+    const whiteFur = plushMaterial(0xf2eee5);
+    const brownFur = plushMaterial(0x76503f);
+    const blackFur = plushMaterial(0x302e34);
     const dark = new THREE.MeshBasicMaterial({ color: key === 'cat' ? 0xd8d6df : 0x332b30 });
     const pink = new THREE.MeshBasicMaterial({ color: 0xe89b9b });
     const orange = new THREE.MeshStandardMaterial({ color: 0xe9873a, roughness: 0.9 });
-    const paw = new THREE.MeshStandardMaterial({ color: key === 'duck' ? 0xe99a47 : 0xe8d4bf, roughness: 0.95 });
+    const paw = new THREE.MeshPhysicalMaterial({
+      color: key === 'duck' ? 0xe99a47 : key === 'bear' ? 0xe8d4bf : key === 'turtle' ? 0xc5d891 : 0xe5a3a5,
+      roughness: 0.32,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.28
+    });
 
     const ball = (scale: [number, number, number], position: [number, number, number], material: THREE.Material = fur) => {
       const mesh = new THREE.Mesh(this.sphereGeometry, material);
@@ -274,13 +344,65 @@ export class GameEngine {
       doll.add(mesh);
       return mesh;
     };
+    const accentLimb = (
+      radius: number,
+      length: number,
+      position: [number, number, number],
+      rotation: number,
+      material: THREE.Material
+    ) => {
+      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 5, 10), material);
+      mesh.position.set(...position);
+      mesh.rotation.z = rotation;
+      doll.add(mesh);
+      return mesh;
+    };
+    const pawPad = (
+      limbCenter: [number, number, number],
+      rotation: number,
+      outward: 1 | -1,
+      reach: number,
+      size = 1
+    ) => {
+      const pad = new THREE.Group();
+      pad.position.set(
+        limbCenter[0] - Math.sin(rotation) * reach * outward,
+        limbCenter[1] + Math.cos(rotation) * reach * outward,
+        limbCenter[2]
+      );
+      pad.rotation.z = rotation;
+      doll.add(pad);
 
+      const center = new THREE.Mesh(this.sphereGeometry, paw);
+      center.scale.set(3.8 * size, 3.8 * size, 3.2 * size);
+      pad.add(center);
+      return pad;
+    };
+
+    if (key === 'turtle') {
+      const shell = new THREE.MeshPhysicalMaterial({ color: 0x557a43, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 2.1, roughness: 0.96, sheen: 0.55, sheenRoughness: 0.9 });
+      ball([26, 29, 8], [0, -3, -5], shell);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 8, 24), new THREE.MeshStandardMaterial({ color: 0x355d37, roughness: 1 }));
+      rim.scale.set(22, 25, 2);
+      rim.position.set(0, -3, 4);
+      doll.add(rim);
+      accents.push(rim);
+    }
     ball([19, 25, 11], [0, -3, 0]);
     ball([22, 20, 12], [0, 25, 0]);
     limb(7, 20, [-23, 13, 0], 0.78);
     limb(7, 20, [23, 13, 0], -0.78);
     limb(8, 18, [-10, -30, 0], -0.34);
     limb(8, 18, [10, -30, 0], 0.34);
+
+    if (key === 'turtle') {
+      ball([14, 18, 2], [0, -4, 10], paw);
+      const bellyRim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 8, 24), dark);
+      bellyRim.scale.set(13, 17, 2);
+      bellyRim.position.set(0, -4, 12.2);
+      doll.add(bellyRim);
+      accents.push(bellyRim);
+    }
 
     if (key === 'bear') {
       ball([8, 8, 6], [-14, 43, 0]);
@@ -290,23 +412,120 @@ export class GameEngine {
     } else if (key === 'cat') {
       limb(5, 7, [-12, 39, 0], -0.25);
       limb(5, 7, [12, 39, 0], 0.25);
+    } else if (key === 'dog') {
+      accentLimb(5.5, 11, [-17, 38, -1], 0.48, brownFur);
+      accentLimb(5.5, 11, [17, 38, -1], -0.48, brownFur);
+      ball([9, 6.5, 2.2], [0, 21.5, 10.5], creamFur);
+      ball([7, 9, 1.5], [-10, 30, 10.3], brownFur);
+    } else if (key === 'fox') {
+      accentLimb(5.5, 12, [-12, 42, 0], -0.22, fur);
+      accentLimb(5.5, 12, [12, 42, 0], 0.22, fur);
+      ball([7.5, 6.5, 2], [-6, 21.5, 10.6], whiteFur);
+      ball([7.5, 6.5, 2], [6, 21.5, 10.6], whiteFur);
+      ball([10, 14, 2], [0, -5, 10], whiteFur);
+    } else if (key === 'panda') {
+      ball([8, 8, 6], [-14, 43, 0], blackFur);
+      ball([8, 8, 6], [14, 43, 0], blackFur);
+      const leftPatch = ball([6.3, 8, 1.2], [-7, 29, 10.1], blackFur);
+      const rightPatch = ball([6.3, 8, 1.2], [7, 29, 10.1], blackFur);
+      leftPatch.rotation.z = -0.35;
+      rightPatch.rotation.z = 0.35;
+      ball([10, 13, 2], [0, -4, 10], blackFur);
+    } else if (key === 'pig') {
+      ball([7, 7, 5], [-14, 42, 0]);
+      ball([7, 7, 5], [14, 42, 0]);
+      ball([4.3, 4.3, 2], [-14, 42, 5], paw);
+      ball([4.3, 4.3, 2], [14, 42, 5], paw);
+    } else if (key === 'hamster') {
+      ball([7, 7, 5], [-14, 41, 0], brownFur);
+      ball([7, 7, 5], [14, 41, 0], brownFur);
+      ball([4, 4, 2], [-14, 41, 5], paw);
+      ball([4, 4, 2], [14, 41, 5], paw);
+      ball([8, 7, 2], [-10, 21, 10.4], creamFur);
+      ball([8, 7, 2], [10, 21, 10.4], creamFur);
+      ball([10, 15, 2], [0, -4, 10], creamFur);
     }
 
     const normalEyes: THREE.Mesh[] = [
       ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
       ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
     ];
-    if (key === 'duck') accents.push(ball([5.8, 2.9, 2.4], [0, 22, 12], orange));
-    else ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' ? pink : dark);
-    ball([4.2, 4.2, 1.8], [-34, 26, 7], paw);
-    ball([4.2, 4.2, 1.8], [34, 26, 7], paw);
-    ball([4.5, 4.5, 1.8], [-16, -45, 7], paw);
-    ball([4.5, 4.5, 1.8], [16, -45, 7], paw);
+    if (key === 'cat') {
+      const pupil = new THREE.MeshBasicMaterial({ color: 0x28242c });
+      normalEyes.push(ball([0.7, 1.2, 0.5], [-6.2, 28.5, 12], pupil), ball([0.7, 1.2, 0.5], [6.2, 28.5, 12], pupil));
+    }
+    if (key === 'duck') {
+      accents.push(ball([5.8, 2.9, 2.4], [0, 22, 12], orange));
+    } else if (key === 'pig') {
+      ball([7.4, 5.2, 2.2], [0, 21.5, 11.2], paw);
+      ball([1.2, 1.7, 0.7], [-2.5, 21.5, 13], dark);
+      ball([1.2, 1.7, 0.7], [2.5, 21.5, 13], dark);
+    } else {
+      ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' || key === 'hamster' ? pink : dark);
+    }
+    pawPad([-23, 13, 0], 0.78, 1, 16, 0.9);
+    pawPad([23, 13, 0], -0.78, 1, 16, 0.9);
+    pawPad([-10, -30, 0], -0.34, -1, 16);
+    pawPad([10, -30, 0], 0.34, -1, 16);
 
-    const readyFace = new THREE.Group(); readyFace.visible = false; doll.add(readyFace);
-    const hitFace = new THREE.Group(); hitFace.visible = false; doll.add(hitFace);
-    const resultFace = new THREE.Group(); resultFace.visible = false; doll.add(resultFace);
+    if (key === 'fox') {
+      accentLimb(7, 19, [22, -13, -8], -0.68, fur);
+      ball([7, 8, 4], [33, -23, -7], whiteFur);
+    } else if (key === 'dog') {
+      accentLimb(4.5, 10, [18, -13, -8], -0.72, brownFur);
+    } else if (key === 'pig') {
+      const curl = new THREE.Mesh(new THREE.TorusGeometry(5, 1.5, 7, 18, Math.PI * 1.65), fur);
+      curl.position.set(18, -5, -9);
+      doll.add(curl);
+    } else {
+      const tailSize = key === 'rabbit' ? 6 : key === 'turtle' ? 3 : key === 'hamster' ? 3.5 : 4.5;
+      ball([tailSize, tailSize, 3], [0, -3, -10], fur);
+    }
 
+    const faceGroup = () => {
+      const face = new THREE.Group();
+      face.visible = false;
+      doll.add(face);
+      return face;
+    };
+    const stroke = (face: THREE.Group, x: number, y: number, rotation: number, length = 4) => {
+      const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), dark);
+      line.position.set(x, y, 12.5);
+      line.rotation.z = rotation;
+      face.add(line);
+    };
+    const roundMouth = (face: THREE.Group) => {
+      const mouth = new THREE.Mesh(new THREE.TorusGeometry(2, 0.65, 6, 16), dark);
+      mouth.position.set(0, 20, 12.5);
+      face.add(mouth);
+    };
+
+    const readyFace = faceGroup();
+    stroke(readyFace, -6.2, 33, -1.3, 4.5);
+    stroke(readyFace, 6.2, 33, 1.3, 4.5);
+    roundMouth(readyFace);
+
+    const hitFace = faceGroup();
+    stroke(hitFace, -6.2, 29.8, 0.75);
+    stroke(hitFace, -6.2, 27.2, -0.75);
+    stroke(hitFace, 6.2, 29.8, -0.75);
+    stroke(hitFace, 6.2, 27.2, 0.75);
+    roundMouth(hitFace);
+
+    const resultFace = faceGroup();
+    stroke(resultFace, -7.5, 28.5, -0.75);
+    stroke(resultFace, -4.9, 28.5, 0.75);
+    stroke(resultFace, 4.9, 28.5, -0.75);
+    stroke(resultFace, 7.5, 28.5, 0.75);
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.7, 6, 18, Math.PI), dark);
+    smile.position.set(0, 22, 12.5);
+    smile.rotation.z = Math.PI;
+    resultFace.add(smile);
+
+    accents.forEach((part) => {
+      part.userData.baseRotationZ = part.rotation.z;
+      part.userData.baseScaleY = part.scale.y;
+    });
     group.userData = { doll, accents, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
     targetScene.add(group);
     return group;
@@ -380,16 +599,38 @@ export class GameEngine {
     return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
   }
 
+  private createBodyColliders(index: number, body: RAPIER.RigidBody) {
+    const add = (hx: number, hy: number, hz: number, radius: number, x: number, y: number, angle = 0) => {
+      const rotation = { x: 0, y: 0, z: Math.sin(angle / 2), w: Math.cos(angle / 2) };
+      const collider = this.world.createCollider(
+        RAPIER.ColliderDesc.roundCuboid(hx, hy, hz, radius)
+          .setTranslation(x, y, 0)
+          .setRotation(rotation)
+          .setDensity(0.0007)
+          .setFriction(0)
+          .setRestitution(0.18)
+          .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+        body
+      );
+      this.colliderRacers.set(collider.handle, index);
+    };
+
+    add(21, 24, 4, 7, 0, -4);
+  }
+
   private createRacer(index: number, characterKey: CharacterKey = 'bear') {
-    const startX = -117 + index * RACER_GAP_X;
+    const startX = -136.5 + index * 91;
     const startY = this.screenToWorldY(START_Y);
+    const initialGrip = 0.65 + Math.random() * 0.25;
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(startX, startY, GRIP_Z)
-        .setLinearDamping(0.12)
-        .setAngularDamping(0.08)
+        .setTranslation(startX, startY, 5)
+        .setLinearDamping(0.35)
+        .setAngularDamping(0.7)
+        .setCcdEnabled(true)
+        .setAdditionalSolverIterations(8)
     );
-    body.setAdditionalMass(0.015, true);
+    this.createBodyColliders(index, body);
 
     const visual = this.makeVisual(characterKey);
 
@@ -400,30 +641,22 @@ export class GameEngine {
       characterKey,
       name: this.participantData[index]?.name || CHARACTER_DATA[characterKey].name,
       anchors: [] as any[],
-      gripElapsed: 0,
-      flipStart: null,
+      gripElapsed: -initialGrip,
+      flipStart: { ...body.rotation() },
       flipAxisX: 1,
       isFlipping: false,
       knockbackUntil: 0,
       expressionUntil: 0,
-      stickDuration: 0.5,
+      stickDuration: initialGrip,
       lastProgressY: startY,
       stalledFor: 0,
       placed: false,
       active: true
     };
 
-    START_PADS[index].forEach((padIndex) => {
-      const point = PAD_POINTS[padIndex].clone().add(new THREE.Vector3(startX, startY, GRIP_Z));
-      const anchorBody = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(point.x, point.y, GRIP_Z));
-      const joint = this.world.createImpulseJoint(
-        RAPIER.JointData.spherical({ x: 0, y: 0, z: 0 }, PAD_POINTS[padIndex]),
-        anchorBody,
-        body,
-        true
-      );
-      racer.anchors.push({ padIndex, anchorBody, joint, removed: false });
-    });
+    START_PADS[index].forEach((padIndex) => this.attachPad(racer, padIndex));
+    racer.lastProgressY = this.anchorProgressY(racer);
+    body.setAngvel({ x: 0, y: 0, z: 0.05 * (index % 2 ? 1 : -1) }, true);
 
     return racer;
   }
@@ -435,16 +668,21 @@ export class GameEngine {
     this.racers.forEach((racer, index) => {
       const participant = this.participantData[index];
       racer.active = Boolean(participant && participant.name.trim());
-      // Keep the Three.js scene in sync with the selected participant list.
-      // Inactive slots must not remain visible on the race screen.
+      if (racer.active && participant && racer.characterKey !== participant.characterKey) {
+        this.scene.remove(racer.visual);
+        racer.visual.traverse((part: THREE.Object3D) => {
+          const mesh = part as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          if (mesh.geometry !== this.sphereGeometry) mesh.geometry.dispose();
+          (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((material) => material.dispose());
+        });
+        racer.characterKey = participant.characterKey;
+        racer.visual = this.makeVisual(racer.characterKey);
+      }
       racer.visual.visible = racer.active;
-      if (!participant) return;
-      racer.name = participant.name;
-      if (racer.characterKey === participant.characterKey) return;
-      this.scene.remove(racer.visual);
-      racer.visual = this.makeVisual(participant.characterKey);
-      racer.characterKey = participant.characterKey;
-      racer.visual.visible = racer.active;
+      if (racer.active && participant) racer.name = participant.name;
+      else [...racer.anchors].forEach((anchor: any) => this.detachPad(racer, anchor));
+      racer.body.setEnabled(racer.active);
     });
   }
 
@@ -575,19 +813,13 @@ export class GameEngine {
   }
 
   private placeRacer(racer: any, x: number, worldY: number) {
-    if (!racer.anchors.length) {
-      START_PADS[racer.index].forEach((padIndex: number) => this.attachPad(racer, padIndex));
-    }
-    racer.body.setTranslation({ x, y: worldY, z: GRIP_Z }, true);
+    [...racer.anchors].forEach((anchor: any) => this.detachPad(racer, anchor));
+    racer.body.setTranslation({ x, y: worldY, z: 5 }, true);
     racer.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     racer.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     racer.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    racer.anchors.forEach((anchor: any) => {
-      const point = this.padWorld(racer, anchor.padIndex);
-      anchor.anchorBody.setTranslation({ x: point.x, y: point.y, z: GRIP_Z }, true);
-    });
+    START_PADS[racer.index].forEach((padIndex: number) => this.attachPad(racer, padIndex));
     racer.lastProgressY = this.anchorProgressY(racer);
-    racer.visual.position.set(x, worldY, GRIP_Z);
   }
 
   private moveRacer(racer: any, x: number, worldY: number) {
@@ -600,7 +832,7 @@ export class GameEngine {
       anchor.anchorBody.setTranslation({ x: point.x, y: point.y, z: GRIP_Z }, true);
     });
     racer.lastProgressY = worldY;
-    racer.visual.position.set(x, worldY, GRIP_Z);
+    racer.visual.position.set(x, worldY, GRIP_Z + (racer === this.draggedRacer ? DRAG_VISUAL_Z_OFFSET : 0));
   }
 
   private pointerWorld(event: PointerEvent) {
@@ -612,27 +844,65 @@ export class GameEngine {
     return { x, y };
   }
 
+  private placementTopScreenY() {
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const hudRect = document.querySelector<HTMLElement>('#hud')?.getBoundingClientRect();
+    if (!hudRect || !canvasRect.height) return 105;
+    const hudBottomInGame = (hudRect.bottom - canvasRect.top) / canvasRect.height * HEIGHT;
+    return THREE.MathUtils.clamp(hudBottomInGame + RACER_TOP_CLEARANCE, 105, START_Y);
+  }
+
+  private overlapsRacerAt(racer: any, x: number, y: number) {
+    const others = this.racers.filter((item) => item.active && item !== racer).map((item) => item.body.translation());
+    return others.some((position) => PLACEMENT_PARTS.some((part) => PLACEMENT_PARTS.some((otherPart) => (
+      Math.hypot(
+        (x + part.x - position.x - otherPart.x) / (part.rx + otherPart.rx),
+        (y + part.y - position.y - otherPart.y) / (part.ry + otherPart.ry)
+      ) < 1
+    ))));
+  }
+
+  private nearestOpenPosition(racer: any, targetX: number, targetY: number) {
+    if (!this.overlapsRacerAt(racer, targetX, targetY)) return { x: targetX, y: targetY };
+
+    const preferredDirection = targetX <= 0 ? 1 : -1;
+    for (let distance = 6; distance <= 320; distance += 6) {
+      for (const direction of [preferredDirection, -preferredDirection]) {
+        const x = targetX + distance * direction;
+        if (x < -160 || x > 160) continue;
+        if (!this.overlapsRacerAt(racer, x, targetY)) return { x, y: targetY };
+      }
+    }
+
+    return this.dragOrigin ?? { x: targetX, y: targetY };
+  }
+
+  private settleRacer(racer: any, targetX: number, targetY: number) {
+    const position = racer.body.translation();
+    const tweenPosition = { x: position.x, y: position.y };
+    racer.placementTween?.kill();
+    racer.placementTween = gsap.to(tweenPosition, {
+      x: targetX,
+      y: targetY,
+      duration: PLACEMENT_SETTLE_DURATION,
+      ease: 'power2.out',
+      onUpdate: () => this.moveRacer(racer, tweenPosition.x, tweenPosition.y),
+      onComplete: () => { racer.placementTween = null; }
+    });
+  }
+
   private placeFromPointer(event: PointerEvent) {
     if (!this.draggedRacer) return;
     const point = this.pointerWorld(event);
-    const active = this.racers.filter((racer) => racer.active && racer !== this.draggedRacer);
-    let x = THREE.MathUtils.clamp(point.x, -EDGE_SOFT_LIMIT, EDGE_SOFT_LIMIT);
-    let y = THREE.MathUtils.clamp(point.y, this.screenToWorldY(START_LINE_Y), this.screenToWorldY(95));
-    active.forEach((racer) => {
-      const other = racer.body.translation();
-      if (Math.hypot(x - other.x, y - other.y) < 70) {
-        const direction = Math.sign(x - other.x) || (this.draggedRacer.index % 2 ? -1 : 1);
-        x = THREE.MathUtils.clamp(other.x + direction * RACER_GAP_X, -EDGE_SOFT_LIMIT, EDGE_SOFT_LIMIT);
-      }
-    });
+    const x = THREE.MathUtils.clamp(point.x, -160, 160);
+    const y = THREE.MathUtils.clamp(point.y, this.screenToWorldY(START_Y), this.screenToWorldY(this.placementTopScreenY()));
     this.moveRacer(this.draggedRacer, x, y);
   }
 
   private handlePointerDown = (event: PointerEvent) => {
     if (this.running || this.finished) return;
     const point = this.pointerWorld(event);
-    // Select by a forgiving hit area so dragging works on the whole doll.
-    let closest = 180;
+    let closest = 48;
     this.draggedRacer = null;
     this.racers.filter((racer) => racer.active).forEach((racer) => {
       const position = racer.body.translation();
@@ -643,6 +913,11 @@ export class GameEngine {
       }
     });
     if (this.draggedRacer) {
+      this.draggedRacer.placementTween?.kill();
+      this.draggedRacer.placementTween = null;
+      const position = this.draggedRacer.body.translation();
+      this.dragOrigin = { x: position.x, y: position.y };
+      this.draggedRacer.visual.renderOrder = 20;
       event.preventDefault();
       this.canvas.setPointerCapture(event.pointerId);
     }
@@ -654,66 +929,138 @@ export class GameEngine {
     this.placeFromPointer(event);
   };
   private handlePointerUp = (event: PointerEvent) => {
+    if (this.draggedRacer && this.dragOrigin) {
+      const draggedPosition = this.draggedRacer.body.translation();
+      const openPosition = this.nearestOpenPosition(this.draggedRacer, draggedPosition.x, draggedPosition.y);
+      this.settleRacer(this.draggedRacer, openPosition.x, openPosition.y);
+      this.draggedRacer.visual.renderOrder = 0;
+    }
     if (this.draggedRacer && this.canvas.hasPointerCapture(event.pointerId)) {
       this.canvas.releasePointerCapture(event.pointerId);
     }
     this.draggedRacer = null;
+    this.dragOrigin = null;
   };
 
-  private updateObstacle(dt: number) {
-    if (!this.running || !this.mole) return;
+  private resetMole() {
+    this.mole.phase = 'hidden';
+    this.mole.timer = THREE.MathUtils.randFloat(0.5, 1);
+    this.mole.group.visible = false;
+    this.mole.collider.setEnabled(false);
+  }
+
+  private ghostStep(x: number, direction: number, dt: number) {
+    const next = x + direction * GHOST_SPEED * dt;
+    if (direction > 0 && next >= EDGE_SOFT_LIMIT) return { x: EDGE_SOFT_LIMIT, direction: -1 };
+    if (direction < 0 && next <= -EDGE_SOFT_LIMIT) return { x: -EDGE_SOFT_LIMIT, direction: 1 };
+    return { x: next, direction };
+  }
+
+  private updateGhost(dt: number) {
+    this.mole.timer -= dt;
+    this.mole.hit = Math.max(0, this.mole.hit - dt);
+    if (this.mole.phase === 'hidden') {
+      if (this.mole.timer > 0) return;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      this.mole.direction = -side;
+      this.mole.flightY = this.cameraY - THREE.MathUtils.randFloat(190, 330);
+      this.mole.group.position.set(side * (WIDTH / 2 + 55), this.mole.flightY, 15);
+      this.mole.group.visible = true;
+      this.mole.head.visible = true;
+      this.mole.dirt.visible = false;
+      this.mole.collider.setEnabled(true);
+      this.mole.phase = 'flying';
+      this.mole.timer = GHOST_FLY_TIME;
+    } else if (this.mole.timer <= 0) {
+      this.mole.phase = 'hidden';
+      this.mole.timer = THREE.MathUtils.randFloat(0.7, 1.3);
+      this.mole.group.visible = false;
+      this.mole.collider.setEnabled(false);
+      return;
+    }
+
+    const flightY = this.mole.flightY ?? this.cameraY;
+    const step = this.ghostStep(this.mole.group.position.x, this.mole.direction ?? 1, dt);
+    this.mole.direction = step.direction;
+    const y = flightY + Math.sin(this.raceElapsed * 4) * 6;
+    this.mole.group.position.set(step.x, y, 15);
+    this.mole.body.setNextKinematicTranslation({ x: step.x, y, z: 15 });
+    const squash = this.mole.hit ? Math.sin(this.mole.hit / 0.18 * Math.PI) * 0.35 : 0;
+    this.mole.head.scale.set(1 + squash, 1 - squash * 0.45, 1);
+    this.mole.head.position.y = 18;
+  }
+
+  private isRiverZone(worldY: number) {
+    const courseY = HEIGHT / 2 - worldY;
+    return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y;
+  }
+
+  private canSpawnObstacle(theme: string, worldY: number) {
+    return theme === 'night' || !this.isRiverZone(worldY);
+  }
+
+  private updateMole(dt: number) {
+    if (!this.running) return;
+    if (this.activeTheme === 'night') {
+      this.updateGhost(dt);
+      return;
+    }
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
     if (this.mole.timer <= 0) {
       if (this.mole.phase === 'hidden') {
         const x = THREE.MathUtils.randFloat(-125, 125);
         const y = this.cameraY - THREE.MathUtils.randFloat(190, 330);
+        if (!this.canSpawnObstacle(this.activeTheme, y)) {
+          this.mole.timer = 0.25;
+          return;
+        }
         this.mole.body.setNextKinematicTranslation({ x, y, z: 15 });
         this.mole.group.position.set(x, y, 15);
         this.mole.group.visible = true;
-        this.mole.dirt.visible = this.activeTheme !== 'night';
+        this.mole.head.visible = false;
+        this.mole.dirt.visible = this.activeTheme === 'day';
         this.mole.phase = 'warning';
-        this.mole.timer = 0.45;
+        this.mole.timer = 0.5;
       } else if (this.mole.phase === 'warning') {
         this.mole.phase = 'up';
         this.mole.timer = MOLE_UP_TIME;
+        this.mole.head.visible = true;
+        // The mole artwork already includes its own dirt rim. Hide the
+        // temporary warning hole once it pops up so the two do not overlap.
+        this.mole.dirt.visible = false;
         this.mole.collider.setEnabled(true);
       } else {
         this.mole.phase = 'hidden';
-        this.mole.timer = THREE.MathUtils.randFloat(0.7, 1.6);
+        this.mole.timer = THREE.MathUtils.randFloat(0.4, 1);
         this.mole.group.visible = false;
         this.mole.collider.setEnabled(false);
       }
     }
     if (!this.mole.group.visible) return;
     const warning = this.mole.phase === 'warning';
-    const pop = warning ? 0.08 : Math.min(1, (MOLE_UP_TIME - this.mole.timer) * 7, this.mole.timer * 7);
-    this.mole.head.scale.y = Math.max(0.02, pop);
-    if (this.mole.phase === 'up') {
-      this.racers.filter((racer) => racer.active).forEach((racer) => {
-        const position = racer.body.translation();
-        if (Math.hypot(position.x - this.mole.group.position.x, position.y - this.mole.group.position.y) < 58) {
-          racer.body.setTranslation({ x: position.x, y: position.y + 70, z: GRIP_Z }, true);
-          racer.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          this.mole.hit = 0.18;
-        }
-      });
-    }
+    this.mole.dirt.scale.x = 1.5 + Math.sin(this.mole.timer * 35) * (warning ? 0.16 : 0.03);
+    const pop = warning ? 0.01 : Math.min(1, (MOLE_UP_TIME - this.mole.timer) * 7, this.mole.timer * 7);
+    const squash = this.mole.hit ? Math.sin(this.mole.hit / 0.18 * Math.PI) * 0.35 : 0;
+    this.mole.head.scale.set(1 + squash, Math.max(0.01, pop - squash * 0.45), 1);
+    this.mole.head.position.y = 18;
   }
 
-  private setExpression(visual: THREE.Group, expression: 'neutral' | 'ready' | 'result') {
+  private setExpression(visual: THREE.Group, expression: 'neutral' | 'ready' | 'hit' | 'result' = 'neutral') {
     const { faces } = visual.userData;
     if (!faces) return;
-    faces.normalEyes.forEach((eye: THREE.Mesh) => { eye.visible = expression !== 'result'; });
+    faces.normalEyes.forEach((eye: THREE.Mesh) => { eye.visible = expression !== 'hit' && expression !== 'result'; });
     faces.ready.visible = expression === 'ready';
+    faces.hit.visible = expression === 'hit';
     faces.result.visible = expression === 'result';
   }
 
   private finishRace(winner: any) {
     if (this.finished) return;
     this.finished = true;
-    this.running = false;
     this.setExpression(winner.visual, 'result');
+    this.tone(1040, 0.24);
+    triggerHaptic(this.hapticEnabled, 'confetti', [55, 30, 80]);
     const active = this.racers.filter((racer) => racer.active);
     const rankings = active
       .slice()
@@ -727,101 +1074,203 @@ export class GameEngine {
     const winnerInfo: { name: string; key: CharacterKey } = rankings[0]
       ? { name: rankings[0].name, key: rankings[0].key as CharacterKey }
       : { name: winner.name, key: winner.characterKey as CharacterKey };
-    this.options.onStatusUpdate('선택 완료');
+    this.options.onStatusUpdate('결승선 통과!');
     this.options.onProgressUpdate?.(100);
-    this.options.onFinish(
-      winnerInfo.name,
-      winnerInfo.key,
-      `내 선택은 ${winnerInfo.name}이야!`,
-      rankings
-    );
+    this.finishTimeoutId = window.setTimeout(() => {
+      this.finishTimeoutId = null;
+      if (!this.finished || this.isDestroyed) return;
+      this.running = false;
+      this.options.onStatusUpdate('선택 완료');
+      this.options.onFinish(
+        winnerInfo.name,
+        winnerInfo.key,
+        `내 선택은 ${winnerInfo.name}이야!`,
+        rankings
+      );
+    }, FINISH_RESULT_DELAY);
+  }
+
+  private catchUpIndex(progressY: number[]) {
+    const leader = Math.min(...progressY);
+    const last = Math.max(...progressY);
+    return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
   }
 
   private syncRace(dt: number) {
+    let lowest = Infinity;
+    if (this.running) this.raceElapsed = (performance.now() - this.raceStartedAt) / 1000;
     const active = this.racers.filter((racer) => racer.active);
-    if (!active.length) return;
-    const progress = active.map((racer) => this.anchorProgressY(racer));
-    const leaderY = Math.min(...progress);
-
-    active.forEach((racer) => {
+    const boostedRacer = active[this.catchUpIndex(active.map((racer) => racer.body.translation().y))];
+    this.racers.forEach((racer) => {
+      if (!racer.active) return;
       const position = racer.body.translation();
-      const gapBoost = position.y - leaderY > CATCH_UP_GAP ? CATCH_UP_BOOST : 1;
-      const waterSlow = this.isWater(position.x, position.y) ? WATER_SPEED : 1;
-      const speed = ROLL_SPEED * gapBoost * waterSlow * (this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
-      racer.gripElapsed += dt * speed;
+      const rotation = racer.body.rotation();
+      if (this.running && racer.expressionUntil && this.raceElapsed >= racer.expressionUntil) {
+        racer.expressionUntil = 0;
+        this.setExpression(racer.visual);
+      }
+      racer.visual.position.set(
+        position.x,
+        position.y,
+        position.z + (racer === this.draggedRacer ? DRAG_VISUAL_Z_OFFSET : 0)
+      );
+      racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
 
       const sticking = racer.anchors.length > 1 && !racer.isFlipping && racer.gripElapsed < 0;
-      const squeeze = sticking
-        ? Math.sin(Math.PI * (1 + racer.gripElapsed / racer.stickDuration)) * 0.08
-        : 0;
+      const squeeze = sticking ? Math.sin(Math.PI * (1 + racer.gripElapsed / racer.stickDuration)) * 0.08 : 0;
       racer.visual.scale.set(1 + squeeze * 0.45, 1 - squeeze * 0.35, 1 - squeeze);
-
-      if (racer.isFlipping) {
-        const angular = racer.body.angvel();
-        const rollingSpeed = ROLL_SPEED * gapBoost
-          * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2)))
-          * (waterSlow < 1 ? WATER_SPEED : 1);
-        if (waterSlow < 1 || angular.x * racer.flipAxisX < rollingSpeed) {
-          racer.body.setAngvel({ x: racer.flipAxisX * rollingSpeed, y: angular.y, z: angular.z }, true);
-        }
-      }
-
-      const landingPad = racer.isFlipping ? this.nextPad(racer) : undefined;
-      const landingPoint = landingPad === undefined ? null : this.padWorld(racer, landingPad);
-      const lowerPadTouched = Boolean(
-        racer.isFlipping
-        && racer.anchors.length > 0
-        && landingPoint
-        && landingPoint.y < racer.anchors[0].anchorBody.translation().y - 28
-        && Math.abs(landingPoint.z - GRIP_Z) < 12
-      );
-      const completedFlip = racer.isFlipping
-        && racer.gripElapsed > 0.12
-        && lowerPadTouched
-        && this.rotationSinceFlip(racer) > 1.2;
-      const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
-      const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
-      if (firstRelease) this.releaseExtraPad(racer);
-      else if (readyToFlip) this.beginFlip(racer);
-      else if (completedFlip) this.landOnNextPad(racer);
-
-      const nextPosition = racer.body.translation();
-      racer.visual.position.set(nextPosition.x, nextPosition.y, nextPosition.z);
-      const rotation = racer.body.rotation();
-      racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       const { doll, accents, key } = racer.visual.userData;
-      doll.position.y = key === 'bear' ? Math.sin(this.raceElapsed * 4) * 2 : 0;
-      if (key === 'rabbit') accents.forEach((ear: THREE.Object3D, index: number) => { ear.rotation.z = ear.userData.baseRotationZ + Math.sin(this.raceElapsed * 9 + index * Math.PI) * 0.13; });
-      const progressY = this.anchorProgressY(racer);
-      if (progressY < racer.lastProgressY - 18) {
-        racer.lastProgressY = progressY;
-        racer.stalledFor = 0;
-      } else {
-        racer.stalledFor += dt;
+      const characterMotion = this.running ? this.raceElapsed : 0;
+      doll.position.set(0, 0, 0);
+      doll.rotation.set(0, 0, 0);
+      doll.scale.set(1, 1, 1);
+      accents.forEach((part: any) => {
+        part.rotation.z = part.userData.baseRotationZ;
+        part.scale.y = part.userData.baseScaleY;
+      });
+      if (key === 'bear') doll.position.y = Math.sin(characterMotion * 3.2) * 1.1;
+      else if (key === 'rabbit') accents.forEach((ear: any, index: number) => { ear.rotation.z += Math.sin(characterMotion * 9 + index * Math.PI) * 0.13; });
+      else if (key === 'cat') doll.rotation.y = Math.sin(characterMotion * 6) * 0.09;
+      else if (key === 'duck') {
+        const bounce = Math.sin(characterMotion * 7) * 0.025;
+        doll.scale.set(1 + bounce, 1 - bounce, 1);
+        accents[0].scale.y *= 1 + Math.abs(bounce) * 2;
+      } else if (key === 'turtle') {
+        doll.rotation.z = Math.sin(characterMotion * 2.4) * 0.025;
+        accents.forEach((shell: any) => { shell.rotation.z += Math.sin(characterMotion * 2.4) * 0.04; });
+      } else if (key === 'dog') {
+        doll.rotation.y = Math.sin(characterMotion * 5.5) * 0.055;
+      } else if (key === 'fox') {
+        doll.position.x = Math.sin(characterMotion * 4.5) * 0.8;
+      } else if (key === 'panda') {
+        doll.position.y = Math.sin(characterMotion * 3) * 0.9;
+      } else if (key === 'pig') {
+        const bounce = Math.sin(characterMotion * 5) * 0.018;
+        doll.scale.set(1 + bounce, 1 - bounce, 1);
+      } else if (key === 'hamster') {
+        doll.position.y = Math.abs(Math.sin(characterMotion * 5.5)) * 1.2;
       }
-      if (racer.stalledFor > 2.5 && this.raceElapsed > 4) {
-        this.recoverStalledRacer(racer);
+      if (this.running) {
+        const progressY = this.anchorProgressY(racer);
+        if (progressY < racer.lastProgressY - 18) {
+          racer.lastProgressY = progressY;
+          racer.stalledFor = 0;
+        } else racer.stalledFor += dt;
+        if (racer.stalledFor > 2.5 && this.raceElapsed > 4) {
+          this.recoverStalledRacer(racer);
+        }
+        const shakeBoosted = performance.now() < this.shakeBoostUntil;
+        const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
+        const speed = ROLL_SPEED * catchUpBoost * (shakeBoosted ? 3.2 : this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
+        racer.gripElapsed += dt * speed;
+        const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
+        const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
+        const flipAngle = racer.isFlipping ? this.rotationSinceFlip(racer) : 0;
+        const knockedBack = racer.knockbackUntil > this.raceElapsed;
+        if (racer.isFlipping) {
+          const angular = racer.body.angvel();
+          const slowedByWater = this.isWater(position.x, position.y);
+          const rollingSpeed = ROLL_SPEED * catchUpBoost * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
+          if (knockedBack) {
+            racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
+          } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
+            racer.body.setAngvel({ x: racer.flipAxisX * rollingSpeed, y: angular.y, z: angular.z }, true);
+          }
+        }
+        const landingPad = racer.isFlipping ? this.nextPad(racer) : undefined;
+        const landingPoint = landingPad === undefined ? null : this.padWorld(racer, landingPad);
+        const lowerPadTouched = racer.isFlipping
+          && landingPoint
+          && landingPoint.y < racer.anchors[0].anchorBody.translation().y - 28
+          && Math.abs(landingPoint.z - GRIP_Z) < 12;
+        const completedFlip = racer.isFlipping
+          && !knockedBack
+          && racer.gripElapsed > 0.12
+          && lowerPadTouched
+          && flipAngle > 1.2;
+        if (firstRelease) this.releaseExtraPad(racer);
+        else if (readyToFlip) this.beginFlip(racer);
+        else if (completedFlip) this.landOnNextPad(racer);
       }
-      if (nextPosition.y < this.screenToWorldY(FLOOR_Y)) racer.placed = true;
+      lowest = Math.min(lowest, position.y);
+      if (!racer.placed && position.y < this.screenToWorldY(FLOOR_Y)) {
+        racer.placed = true;
+        if (!this.finished) this.finishRace(racer);
+      }
     });
 
-    const lowest = Math.min(...active.map((racer) => this.anchorProgressY(racer)));
-    this.cameraY += (Math.min(0, lowest + 220) - this.cameraY) * Math.min(1, dt * 3.2);
-    this.camera.position.y = this.cameraY;
-    const percent = Math.max(0, Math.min(99, Math.round((this.screenToWorldY(START_Y) - lowest) / (FLOOR_Y - START_Y) * 100)));
-    this.options.onStatusUpdate('달리는 중');
-    this.options.onProgressUpdate?.(percent);
-    if (active.some((racer) => racer.placed) || this.raceElapsed >= RACE_LIMIT) {
-      this.finishRace(active.slice().sort((a, b) => a.body.translation().y - b.body.translation().y)[0]);
+    if (this.running) {
+      const target = Math.min(0, lowest + 220);
+      this.cameraY += (target - this.cameraY) * Math.min(1, dt * 3.2);
+      this.camera.position.y = this.cameraY;
+      if (!this.finished) {
+        const progress = Math.max(0, Math.min(99, Math.round((this.screenToWorldY(START_Y) - lowest) / (FLOOR_Y - START_Y) * 100)));
+        this.options.onStatusUpdate(performance.now() < this.shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `데굴 중 ${progress}%`);
+        this.options.onProgressUpdate?.(progress);
+        if (this.raceElapsed >= RACE_LIMIT) {
+          const choice = active.reduce((selected, racer) => racer.body.translation().y < selected.body.translation().y ? racer : selected);
+          this.finishRace(choice);
+        }
+      }
     }
   }
 
   private isWater(x: number, worldY: number) {
-    const courseY = HEIGHT / 2 - worldY;
-    return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y && Math.abs(x) > BRIDGE_HALF_WIDTH;
+    return this.isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
+  }
+
+  private motionMagnitude(acceleration: { x?: number | null; y?: number | null; z?: number | null } | null) {
+    return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
+  }
+
+  private handleDeviceMotion = (event: DeviceMotionEvent) => {
+    if (!this.running) return;
+    const acceleration = event.acceleration;
+    const magnitude = this.motionMagnitude(acceleration || event.accelerationIncludingGravity);
+    const intensity = acceleration ? magnitude : Math.abs(magnitude - (this.lastMotionMagnitude ?? magnitude));
+    this.lastMotionMagnitude = magnitude;
+    const now = performance.now();
+    if (intensity < 9 || now - this.lastShakeAt < 250) return;
+    this.lastShakeAt = now;
+    this.shakeBoostUntil = now + 1200;
+    triggerHaptic(this.hapticEnabled, 'softMedium', 25);
+  };
+
+  private async enableMotionSensor() {
+    if (this.motionListening || typeof DeviceMotionEvent === 'undefined') return;
+    try {
+      const DeviceMotionEventClass = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
+      if (typeof DeviceMotionEventClass.requestPermission === 'function'
+        && await DeviceMotionEventClass.requestPermission() !== 'granted') return;
+      window.addEventListener('devicemotion', this.handleDeviceMotion);
+      this.motionListening = true;
+    } catch (error) {
+      console.warn('기기 흔들기 감지를 사용할 수 없어요.', error);
+    }
+  }
+
+  private prepareAudio() {
+    if (!this.soundEnabled) return;
+    this.audioContext ||= new AudioContext();
+    if (this.audioContext.state === 'suspended') void this.audioContext.resume();
+  }
+
+  private tone(frequency = 440, duration = 0.08) {
+    if (!this.soundEnabled) return;
+    this.prepareAudio();
+    if (!this.audioContext) return;
+    const oscillator = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.05, this.audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+    oscillator.connect(gain).connect(this.audioContext.destination);
+    oscillator.start();
+    oscillator.stop(this.audioContext.currentTime + duration);
   }
 
   public applyTheme(mode: ThemeMode) {
+    const previousTheme = this.activeTheme;
     this.themeMode = mode;
     this.activeTheme = this.themeForMode(mode);
 
@@ -850,7 +1299,8 @@ export class GameEngine {
       const material = this.mole.head.material as THREE.MeshBasicMaterial;
       material.map = night ? this.mole.ghostTexture : this.mole.moleTexture;
       material.needsUpdate = true;
-      this.mole.dirt.visible = !night && this.mole.group.visible;
+      if (previousTheme !== this.activeTheme) this.resetMole();
+      this.mole.dirt.visible = !night && this.mole.group.visible && this.mole.phase === 'warning';
     }
   }
 
@@ -868,54 +1318,66 @@ export class GameEngine {
 
   public async startRace() {
     if (!this.isInitialized || this.running) return;
+    // Run synchronously from the start-button gesture so iOS WebView allows
+    // the later countdown and collision sounds to use this audio context.
+    this.prepareAudio();
+    this.racers.forEach((racer) => {
+      racer.placementTween?.kill();
+      racer.placementTween = null;
+    });
+    await this.enableMotionSensor();
     const token = ++this.countdownToken;
     this.finished = false;
     this.options.onCountdownUpdate('3', true);
     for (let count = 3; count > 0; count -= 1) {
       if (token !== this.countdownToken) return;
       this.options.onCountdownUpdate(String(count), true);
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      this.tone(360 + (3 - count) * 80, 0.16);
+      triggerHaptic(this.hapticEnabled, 'tickMedium', 35);
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
     }
     if (token !== this.countdownToken) return;
     this.options.onCountdownUpdate('출발!', true);
-    this.racers.filter((racer) => racer.active).forEach((racer) => {
-      racer.gripElapsed = 0;
-      racer.isFlipping = false;
-      racer.body.wakeUp();
-    });
-    this.running = true;
+    this.tone(820, 0.3);
+    triggerHaptic(this.hapticEnabled, 'success', [60, 35, 90]);
     this.raceElapsed = 0;
     this.raceStartedAt = performance.now();
+    this.racers.filter((racer) => racer.active).forEach((racer) => this.setExpression(racer.visual));
+    this.running = true;
     this.options.onStatusUpdate('달리는 중');
     this.options.onProgressUpdate?.(0);
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
     this.options.onCountdownUpdate('출발!', false);
   }
 
   public resetRace() {
     this.countdownToken += 1;
+    if (this.finishTimeoutId !== null) {
+      window.clearTimeout(this.finishTimeoutId);
+      this.finishTimeoutId = null;
+    }
+    this.applyTheme(this.themeMode);
     this.running = false;
     this.finished = false;
     this.raceElapsed = 0;
+    this.shakeBoostUntil = 0;
+    this.lastMotionMagnitude = undefined;
     this.draggedRacer = null;
-    if (this.mole) {
-      this.mole.phase = 'hidden';
-      this.mole.timer = 1.2;
-      this.mole.group.visible = false;
-      this.mole.collider.setEnabled(false);
-    }
+    if (this.mole) this.resetMole();
     this.cameraY = 0;
     if (this.camera) this.camera.position.y = 0;
     const activeRacers = this.racers.filter((racer) => racer.active);
-    this.racers.forEach((racer) => {
-      const activeIndex = activeRacers.indexOf(racer);
-      if (racer.active) {
-        this.resetRacer(racer, activeIndex);
-        const startX = (activeIndex - (activeRacers.length - 1) / 2) * RACER_GAP_X;
-        this.placeRacer(racer, startX, this.screenToWorldY(START_Y));
-      } else {
-        racer.visual.visible = false;
-      }
+    activeRacers.forEach((racer, index) => {
+      racer.placementTween?.kill();
+      racer.placementTween = null;
+      this.placeRacer(racer, (index - (activeRacers.length - 1) / 2) * RACER_GAP_X, this.screenToWorldY(START_Y));
+      racer.placed = false;
+      racer.isFlipping = false;
+      racer.stickDuration = 0;
+      racer.gripElapsed = 0;
+      racer.stalledFor = 0;
+      racer.knockbackUntil = 0;
+      racer.expressionUntil = 0;
       this.setExpression(racer.visual, 'ready');
     });
     this.options.onTimerUpdate('00:00.00');
@@ -951,19 +1413,63 @@ export class GameEngine {
       if (this.running) {
         accumulator += dt;
         while (accumulator >= 1 / 60) {
+          this.updateMole(this.world.timestep);
+          this.racers.forEach((racer) => {
+            if (!racer.active) return;
+            const x = racer.body.translation().x;
+            const edgeDepth = Math.abs(x) - EDGE_SOFT_LIMIT;
+            if (edgeDepth > 0) {
+              const impulse = (EDGE_INWARD_FORCE + edgeDepth * 2) * this.world.timestep * racer.body.mass();
+              racer.body.applyImpulse({ x: -Math.sign(x) * impulse, y: 0, z: 0 }, true);
+            }
+          });
           this.world.step(this.eventQueue);
+          const impacted = new Set<number>();
+          this.eventQueue.drainCollisionEvents((handleA: number, handleB: number, started: boolean) => {
+            const racerA = this.colliderRacers.get(handleA);
+            const racerB = this.colliderRacers.get(handleB);
+            if (started && racerA !== undefined && racerB !== undefined && racerA !== racerB) {
+              impacted.add(racerA);
+              impacted.add(racerB);
+              const now = performance.now();
+              if (now - this.lastRacerImpactFeedbackAt >= 180) {
+                this.lastRacerImpactFeedbackAt = now;
+                this.tone(190, 0.045);
+                triggerHaptic(this.hapticEnabled, 'basicWeak', 18);
+              }
+            }
+            const moleHit = handleA === this.mole.collider.handle ? racerB : handleB === this.mole.collider.handle ? racerA : undefined;
+            if (started && moleHit !== undefined) {
+              const racer = this.racers[moleHit];
+              const direction = Math.sign(racer.body.translation().x - this.mole.body.translation().x) || 1;
+              const mass = racer.body.mass();
+              while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
+              if (!racer.isFlipping) this.beginFlip(racer);
+              racer.knockbackUntil = this.raceElapsed + 0.65;
+              racer.expressionUntil = this.raceElapsed + 0.7;
+              this.setExpression(racer.visual, 'hit');
+              racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
+              this.mole.hit = 0.18;
+              gsap.fromTo(this.canvas, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
+              this.tone(120, 0.16);
+              triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
+            }
+          });
+          impacted.forEach((index) => {
+            const racer = this.racers[index];
+            if (!racer) return;
+            if (racer.anchors.length > 1) racer.gripElapsed += 0.14;
+          });
           accumulator -= 1 / 60;
         }
+      }
 
-        this.raceElapsed = (performance.now() - this.raceStartedAt) / 1000;
-        this.updateObstacle(dt);
-        this.syncRace(dt);
-        const totalSec = this.raceElapsed;
-        const mins = Math.floor(totalSec / 60);
-        const secs = Math.floor(totalSec % 60);
-        const ms = Math.floor((totalSec % 1) * 100);
-        const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
-        this.options.onTimerUpdate(formatted);
+      this.syncRace(dt);
+      if (this.running) {
+        const mins = Math.floor(this.raceElapsed / 60);
+        const secs = Math.floor(this.raceElapsed % 60);
+        const hundredths = Math.floor(this.raceElapsed * 100) % 100;
+        this.options.onTimerUpdate(`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`);
       }
 
       this.renderer.render(this.scene, this.camera);
@@ -975,6 +1481,11 @@ export class GameEngine {
   };
 
   public destroy() {
+    this.isDestroyed = true;
+    if (this.finishTimeoutId !== null) {
+      window.clearTimeout(this.finishTimeoutId);
+      this.finishTimeoutId = null;
+    }
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
     }
@@ -983,6 +1494,7 @@ export class GameEngine {
     this.canvas.removeEventListener('pointermove', this.handlePointerMove);
     this.canvas.removeEventListener('pointerup', this.handlePointerUp);
     this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
+    if (this.motionListening) window.removeEventListener('devicemotion', this.handleDeviceMotion);
     this.renderer?.dispose();
   }
 }

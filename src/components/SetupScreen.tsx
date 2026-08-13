@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '../game/engine';
+import { triggerHaptic } from '../utils/feedback';
 
 export interface ParticipantState {
   name: string;
@@ -21,10 +22,11 @@ interface SetupScreenProps {
   characterPreviews: CharacterPreviewMap;
 }
 
-const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'ghost', 'mole'];
+const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'turtle', 'dog', 'fox', 'panda', 'pig', 'hamster'];
 const CARD_CLASSES = ['setup-card--yellow', 'setup-card--rose', 'setup-card--indigo', 'setup-card--sky'];
 const QUESTION_MAX_LENGTH = 30;
 const PARTICIPANT_MAX_LENGTH = 12;
+const isParticipantActive = (participant: ParticipantState, index: number) => index < 2 || participant.name.trim().length > 0;
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
   question,
@@ -48,7 +50,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       const next = [...prev];
       const usedByOthers = new Set(
         next
-          .filter((_, participantIndex) => participantIndex !== index)
+          .filter((participant, participantIndex) => participantIndex !== index && isParticipantActive(participant, participantIndex))
           .map((participant) => participant.characterKey)
       );
       const characterKey = limitedName.trim() && usedByOthers.has(next[index].characterKey)
@@ -60,12 +62,13 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   };
 
   const handleStepCharacter = (index: number, direction: number) => {
+    triggerHaptic(hapticEnabled, 'tickWeak', 15);
     setParticipants((prev) => {
       const next = [...prev];
       const currentKey = next[index].characterKey;
       const usedByOthers = new Set(
         next
-          .filter((_, participantIndex) => participantIndex !== index)
+          .filter((participant, participantIndex) => participantIndex !== index && isParticipantActive(participant, participantIndex))
           .map((participant) => participant.characterKey)
       );
       const availableKeys = CHARACTER_KEYS.filter((key) => key === currentKey || !usedByOthers.has(key));
