@@ -178,7 +178,7 @@
     #setup #setup-submit.is-incomplete { color: #71717a; background: #e4e4e7; }
     #setup #setup-submit.is-incomplete:hover { color: #ffffff; }
     #setup .mini-character-art { width: 112px; height: 88px; display: block; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
-    #setup .mini-character-art.is-loading { border-radius: 50%; background: rgb(255 255 255 / 45%); }
+    #setup .mini-character-art.is-loading { background: transparent; filter: none; }
     #setup :focus-visible { outline: 4px solid rgb(250 204 21 / 45%); outline-offset: 2px; }
 
     /* Clean High-Contrast Night Mode (밤 테마) */
@@ -216,6 +216,12 @@
     html[data-theme="night"] #setup .settings input { background: #1e293b; border-color: #64748b; box-shadow: 2px 2px 0 #000; }
     html[data-theme="night"] #setup .settings input:checked { background: #f97316 !important; border-color: #f8fafc !important; box-shadow: 2px 2px 0 #000 !important; }
     html[data-theme="night"] #setup .settings input:checked::after { color: #ffffff; font-size: 14px; font-weight: 900; }
+    html[data-theme="night"] #setup .setup-toast { color: #18181b; background: #fff7c2; border-color: #18181b; box-shadow: 4px 4px 0 #000; }
+    html[data-theme="night"] #setup #setup-submit,
+    html[data-theme="night"] #setup #setup-submit.is-incomplete,
+    html[data-theme="night"] #setup #setup-submit:hover { color: #ffffff; background: #7e22ce; border-color: #a855f7; box-shadow: 4px 4px 0 #000; }
+    html[data-theme="night"] .start-board { border-color: #a855f7; background: #312e81; box-shadow: 7px 7px 0 #000; }
+    html[data-theme="night"] #race-start.is-go .start-board { border-color: #a855f7; background: #7e22ce; box-shadow: 5px 5px 0 #000; }
     html[data-theme="night"] #hud { background: #1e293b; border-color: #475569; color: #f8fafc; box-shadow: 4px 4px 0 #000; }
     html[data-theme="night"] #race-question, html[data-theme="night"] #race-timer { color: #f8fafc; }
     html[data-theme="night"] #status { background: transparent; color: #f8fafc; }
