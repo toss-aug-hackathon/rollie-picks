@@ -377,9 +377,22 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
     // Keep the label in the restricted area below the line so it does not
     // overlap the characters waiting above the start line.
-    targetContext.strokeText('출발선', width / 2, startLineY + 22);
+    targetContext.strokeText('출발', width / 2, startLineY + 22);
     targetContext.fillStyle = textColor;
-    targetContext.fillText('출발선', width / 2, startLineY + 22);
+    targetContext.fillText('출발', width / 2, startLineY + 22);
+
+    const finishY = floorY;
+    const tile = 18;
+    for (let x = 0; x < width; x += tile) {
+      targetContext.fillStyle = Math.floor(x / tile) % 2 ? '#ffffff' : lineColor;
+      targetContext.fillRect(x, finishY - 8, tile, 8);
+      targetContext.fillStyle = Math.floor(x / tile) % 2 ? lineColor : '#ffffff';
+      targetContext.fillRect(x, finishY, tile, 8);
+    }
+    targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
+    targetContext.strokeText('도착', width / 2, finishY - 25);
+    targetContext.fillStyle = textColor;
+    targetContext.fillText('도착', width / 2, finishY - 25);
     targetContext.restore();
   };
 

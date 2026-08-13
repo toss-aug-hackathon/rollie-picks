@@ -45,7 +45,7 @@ const PLACEMENT_PARTS = [
 
 export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle' | 'dog' | 'fox' | 'panda' | 'pig' | 'hamster';
 export type ThemeMode = 'auto' | 'day' | 'night';
-export type CharacterPreviewMap = Partial<Record<CharacterKey, string>>;
+export type CharacterPreviewMap = Partial<Record<CharacterKey | `${CharacterKey}-result`, string>>;
 
 export interface RacerInfo {
   name: string;
@@ -559,6 +559,9 @@ export class GameEngine {
       this.setExpression(model, 'ready');
       previewRenderer.render(previewScene, previewCamera);
       previews[key] = previewRenderer.domElement.toDataURL('image/png');
+      this.setExpression(model, 'result');
+      previewRenderer.render(previewScene, previewCamera);
+      previews[`${key}-result`] = previewRenderer.domElement.toDataURL('image/png');
       previewScene.remove(model);
       model.traverse((part: THREE.Object3D) => {
         const mesh = part as THREE.Mesh;
