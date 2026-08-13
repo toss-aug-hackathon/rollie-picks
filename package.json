@@ -4,6 +4,9 @@
   "description": "귀여운 캐릭터가 굴러가 사람이나 선택지 중 하나를 골라주는 선택 도우미",
   "scripts": {
     "dev": "granite dev",
+    "android:connect": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:5173 tcp:5173",
+    "dev:android": "subst Q: \"%CD%\" >nul 2>&1 & cd /d Q:\\ && set \"INIT_CWD=Q:\\\" && npm run dev:android:ascii",
+    "dev:android:ascii": "npm run android:connect && granite dev",
     "dev:web": "vite --host 0.0.0.0",
     "build": "vite build",
     "build:ait": "vite build && ait build",

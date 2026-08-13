@@ -19,6 +19,7 @@ interface SetupScreenProps {
   setHapticEnabled: (val: boolean) => void;
   themeMode: ThemeMode;
   setThemeMode: (val: ThemeMode) => void;
+  mapReady: boolean;
   onSubmit: () => void;
   characterPreviews: CharacterPreviewMap;
 }
@@ -40,6 +41,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   setHapticEnabled,
   themeMode,
   setThemeMode,
+  mapReady,
   onSubmit,
   characterPreviews
 }) => {
@@ -217,10 +219,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
 
         <footer className="setup-footer">
-          <button id="setup-submit" className={`primary ${!isValid ? 'is-incomplete' : ''}`} type="submit">
-            데굴이들에게 골라달라고 하기
+          <button id="setup-submit" className={`primary ${!isValid || !mapReady ? 'is-incomplete' : ''}`} type="submit" disabled={!mapReady}>
+            {mapReady ? '데굴이들에게 골라달라고 하기' : '배경 준비 중...'}
           </button>
         </footer>
+
       </form>
     </section>
   );
