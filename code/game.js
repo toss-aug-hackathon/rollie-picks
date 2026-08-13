@@ -134,26 +134,47 @@ function themeForMode(mode, hour = new Date().getHours()) {
 console.assert(themeForMode('auto', 22) === 'night' && themeForMode('auto', 12) === 'day', 'auto theme failed');
 
 function applyTheme(mode) {
+  const nextTheme = themeForMode(mode);
+  const themeChanged = activeTheme !== nextTheme;
+
   themeMode = mode;
-  activeTheme = themeForMode(mode);
+  activeTheme = nextTheme;
+
   const night = activeTheme === 'night';
+
   document.documentElement.dataset.theme = activeTheme;
   scene.background.set(night ? 0x101936 : 0x8de8ee);
+
   hemisphereLight.intensity = night ? 1.35 : 2.2;
   keyLight.intensity = night ? 1.45 : 2.2;
+
   if (courseWall) {
-    courseWall.material.map = night ? nightCourseTexture : dayCourseTexture;
+    courseWall.material.map = night
+      ? nightCourseTexture
+      : dayCourseTexture;
+
     courseWall.material.needsUpdate = true;
+
     courseMarkers.visible = !night;
     courseNightMarkers.visible = night;
   }
+
   if (mole) {
-    mole.head.material.map = night ? mole.ghostTexture : mole.moleTexture;
+    mole.head.material.map = night
+      ? mole.ghostTexture
+      : mole.moleTexture;
+
     mole.head.material.needsUpdate = true;
+
+    // 레이스 도중 낮 ↔ 밤이 변경되어도
+    // 두더지/유령의 이전 상태가 남지 않도록 초기화
+    if (themeChanged) {
+      resetMole();
+    }
+
     mole.dirt.visible = !night && mole.group.visible;
   }
 }
-
 function motionMagnitude(acceleration) {
   return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
 }
@@ -1155,8 +1176,8 @@ function makeWall() {
   // Three.js texture
   // ------------------------------------------------------------
   const textureLoader = new THREE.TextureLoader();
-  dayCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course.png', import.meta.url).href);
-  nightCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course-night.png', import.meta.url).href);
+  dayCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course.webp', import.meta.url).href);
+  nightCourseTexture = textureLoader.load(new URL('./assets/backgrounds/rolling-course-night.webp', import.meta.url).href);
   for (const texture of [dayCourseTexture, nightCourseTexture]) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
@@ -1647,8 +1668,8 @@ function createMole() {
   dirt.scale.set(1.5, 0.22, 0.45);
   dirt.position.z = -2;
   const loader = new THREE.TextureLoader();
-  const moleTexture = loader.load(new URL('./assets/obstacles/mole-plush.png', import.meta.url).href);
-  const ghostTexture = loader.load(new URL('./assets/obstacles/ghost-plush.png', import.meta.url).href);
+  const moleTexture = loader.load(new URL('./assets/obstacles/mole-plush.webp', import.meta.url).href);
+  const ghostTexture = loader.load(new URL('./assets/obstacles/ghost-plush.webp', import.meta.url).href);
   moleTexture.colorSpace = THREE.SRGBColorSpace;
   ghostTexture.colorSpace = THREE.SRGBColorSpace;
   const head = new THREE.Mesh(
