@@ -16,6 +16,7 @@ dist/
 coverage/
 .cache/
 .eslintcache
+.playwright-mcp/
 
 # Logs
 *.log
