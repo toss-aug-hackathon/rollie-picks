@@ -1,5 +1,5 @@
-import React from 'react';
-import { CharacterKey, CHARACTER_DATA, ThemeMode } from '../game/engine';
+import React, { useState } from 'react';
+import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '../game/engine';
 
 export interface ParticipantState {
   name: string;
@@ -18,10 +18,13 @@ interface SetupScreenProps {
   themeMode: ThemeMode;
   setThemeMode: (val: ThemeMode) => void;
   onSubmit: () => void;
+  characterPreviews: CharacterPreviewMap;
 }
 
 const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'ghost', 'mole'];
 const CARD_CLASSES = ['setup-card--yellow', 'setup-card--rose', 'setup-card--indigo', 'setup-card--sky'];
+const QUESTION_MAX_LENGTH = 30;
+const PARTICIPANT_MAX_LENGTH = 12;
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
   question,
@@ -34,12 +37,24 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   setHapticEnabled,
   themeMode,
   setThemeMode,
-  onSubmit
+  onSubmit,
+  characterPreviews
 }) => {
+  const [toastMessage, setToastMessage] = useState('');
+
   const handleNameChange = (index: number, newName: string) => {
+    const limitedName = newName.slice(0, PARTICIPANT_MAX_LENGTH);
     setParticipants((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], name: newName };
+      const usedByOthers = new Set(
+        next
+          .filter((_, participantIndex) => participantIndex !== index)
+          .map((participant) => participant.characterKey)
+      );
+      const characterKey = limitedName.trim() && usedByOthers.has(next[index].characterKey)
+        ? CHARACTER_KEYS.find((key) => !usedByOthers.has(key)) || next[index].characterKey
+        : next[index].characterKey;
+      next[index] = { ...next[index], name: limitedName, characterKey };
       return next;
     });
   };
@@ -48,10 +63,16 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     setParticipants((prev) => {
       const next = [...prev];
       const currentKey = next[index].characterKey;
-      const currentIndex = CHARACTER_KEYS.indexOf(currentKey);
-      let nextIndex = (currentIndex + direction) % CHARACTER_KEYS.length;
-      if (nextIndex < 0) nextIndex += CHARACTER_KEYS.length;
-      next[index] = { ...next[index], characterKey: CHARACTER_KEYS[nextIndex] };
+      const usedByOthers = new Set(
+        next
+          .filter((_, participantIndex) => participantIndex !== index)
+          .map((participant) => participant.characterKey)
+      );
+      const availableKeys = CHARACTER_KEYS.filter((key) => key === currentKey || !usedByOthers.has(key));
+      const currentIndex = availableKeys.indexOf(currentKey);
+      let nextIndex = (currentIndex + direction) % availableKeys.length;
+      if (nextIndex < 0) nextIndex += availableKeys.length;
+      next[index] = { ...next[index], characterKey: availableKeys[nextIndex] };
       return next;
     });
   };
@@ -60,7 +81,17 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isValid) onSubmit();
+    if (!question.trim()) {
+      setToastMessage('고민 제목을 적어주세요.');
+      return;
+    }
+
+    if (!participants[0].name.trim() || !participants[1].name.trim()) {
+      setToastMessage('선택지 2개를 모두 적어주세요.');
+      return;
+    }
+
+    onSubmit();
   };
 
   return (
@@ -83,11 +114,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           <label id="question-label" htmlFor="decision-question">Q. 고민은 뭐야?</label>
           <input
             id="decision-question"
-            maxLength={30}
+            maxLength={QUESTION_MAX_LENGTH}
             placeholder="무엇을 골라줄까?"
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            required
+            onChange={(e) => setQuestion(e.target.value.slice(0, QUESTION_MAX_LENGTH))}
           />
         </section>
 
@@ -105,11 +135,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               >
                 <input
                   name="name"
-                  maxLength={10}
+                  maxLength={PARTICIPANT_MAX_LENGTH}
                   placeholder={placeholder}
                   value={item.name}
                   onChange={(e) => handleNameChange(i, e.target.value)}
-                  required={!isOptional}
                 />
                 <div className="mini-character-picker" aria-disabled={isDisabled}>
                   <button
@@ -122,7 +151,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                     ‹
                   </button>
                   <div className="mini-character-preview">
-                    <img src={charData.preview} alt={charData.name} />
+                    {characterPreviews[item.characterKey] ? (
+                      <img className="mini-character-art" src={characterPreviews[item.characterKey]} alt={charData.name} />
+                    ) : (
+                      <div className="mini-character-art is-loading" role="img" aria-label={`${charData.name} 준비 중`} />
+                    )}
                     <span>{isDisabled ? '선택 안 됨' : charData.name}</span>
                   </div>
                   <button
@@ -172,11 +205,16 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
 
         <footer className="setup-footer">
-          <button id="setup-submit" className="primary" type="submit" disabled={!isValid}>
+          <button id="setup-submit" className={`primary ${!isValid ? 'is-incomplete' : ''}`} type="submit">
             데굴이들에게 골라달라고 하기
           </button>
         </footer>
       </form>
+      {toastMessage && (
+        <div className="setup-toast" role="alert" onAnimationEnd={() => setToastMessage('')}>
+          {toastMessage}
+        </div>
+      )}
     </section>
   );
 };

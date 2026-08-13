@@ -4,7 +4,7 @@ import { SetupScreen, ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
 import { PauseModal } from './components/PauseModal';
 import { ResultOverlay, RankingItem } from './components/ResultOverlay';
-import { GameEngine, CharacterKey, ThemeMode } from './game/engine';
+import { CharacterPreviewMap, GameEngine, CharacterKey, ThemeMode } from './game/engine';
 
 export const App: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<'setup' | 'playing' | 'paused' | 'result'>('setup');
@@ -23,26 +23,45 @@ export const App: React.FC = () => {
 
   const [timerStr, setTimerStr] = useState('00:00.00');
   const [statusStr, setStatusStr] = useState('준비');
+  const [progress, setProgress] = useState(0);
   const [countdownStr, setCountdownStr] = useState('3');
   const [countdownVisible, setCountdownVisible] = useState(false);
+  const [placementMode, setPlacementMode] = useState(false);
 
   const [winnerName, setWinnerName] = useState('');
   const [winnerCharKey, setWinnerCharKey] = useState<CharacterKey>('bear');
   const [winnerSpeech, setWinnerSpeech] = useState('');
   const [rankings, setRankings] = useState<RankingItem[]>([]);
+  const [characterPreviews, setCharacterPreviews] = useState<CharacterPreviewMap>({});
 
   const engineRef = useRef<GameEngine | null>(null);
+  const pendingStartRef = useRef(false);
 
   const handleEngineReady = (engine: GameEngine) => {
     engineRef.current = engine;
+    if (pendingStartRef.current) {
+      pendingStartRef.current = false;
+      setPlacementMode(false);
+      void engine.startRace();
+    }
   };
 
   const handleSubmitSetup = () => {
     if (engineRef.current) {
+      engineRef.current.setParticipants(participants);
       engineRef.current.resetRace();
-      engineRef.current.startRace();
     }
+    setPlacementMode(true);
     setActiveScreen('playing');
+  };
+
+  const handleStartPlacedRace = () => {
+    if (!engineRef.current) {
+      pendingStartRef.current = true;
+      return;
+    }
+    setPlacementMode(false);
+    void engineRef.current.startRace();
   };
 
   const handleOpenMenu = () => {
@@ -58,6 +77,7 @@ export const App: React.FC = () => {
       engineRef.current.resetRace();
     }
     setActiveScreen('setup');
+    setPlacementMode(false);
   };
 
   const handleFinish = (
@@ -75,9 +95,10 @@ export const App: React.FC = () => {
 
   const handleReplayResult = () => {
     if (engineRef.current) {
+      engineRef.current.setParticipants(participants);
       engineRef.current.resetRace();
-      engineRef.current.startRace();
     }
+    setPlacementMode(true);
     setActiveScreen('playing');
   };
 
@@ -85,6 +106,7 @@ export const App: React.FC = () => {
     if (engineRef.current) {
       engineRef.current.resetRace();
     }
+    setPlacementMode(false);
     setActiveScreen('setup');
   };
 
@@ -93,6 +115,7 @@ export const App: React.FC = () => {
       <HUD
         question={question}
         status={statusStr}
+        progress={progress}
         timer={timerStr}
         onOpenMenu={handleOpenMenu}
       />
@@ -101,11 +124,14 @@ export const App: React.FC = () => {
         onEngineReady={handleEngineReady}
         onTimerUpdate={setTimerStr}
         onStatusUpdate={setStatusStr}
+        onProgressUpdate={setProgress}
         onCountdownUpdate={(count, visible) => {
           setCountdownStr(count);
           setCountdownVisible(visible);
         }}
         onFinish={handleFinish}
+        participants={participants}
+        onCharacterPreviewsReady={setCharacterPreviews}
         soundEnabled={soundEnabled}
         hapticEnabled={hapticEnabled}
         themeMode={themeMode}
@@ -123,6 +149,13 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {activeScreen === 'playing' && placementMode && (
+        <div id="placement-guide">
+          <span>캐릭터를 원하는 위치로 옮겨보세요</span>
+          <button type="button" className="primary" onClick={handleStartPlacedRace}>데굴이 출발</button>
+        </div>
+      )}
+
       {activeScreen === 'setup' && (
         <SetupScreen
           question={question}
@@ -136,6 +169,7 @@ export const App: React.FC = () => {
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           onSubmit={handleSubmitSetup}
+          characterPreviews={characterPreviews}
         />
       )}
 
@@ -153,6 +187,7 @@ export const App: React.FC = () => {
         rankings={rankings}
         onReplay={handleReplayResult}
         onEditPlayers={handleEditPlayersResult}
+        characterPreviews={characterPreviews}
       />
     </main>
   );

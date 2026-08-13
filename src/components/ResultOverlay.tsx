@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CharacterKey, CHARACTER_DATA } from '../game/engine';
+import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA } from '../game/engine';
 
 export interface RankingItem {
   rank: number;
@@ -16,12 +16,17 @@ interface ResultOverlayProps {
   rankings: RankingItem[];
   onReplay: () => void;
   onEditPlayers: () => void;
+  characterPreviews: CharacterPreviewMap;
 }
 
 const COMMENTS = [
   '데굴이가 가장 당당하게 굴러들어왔어요!',
   '망설임 없이 끝까지 돌진했어요!',
-  '고민하지 말고 바로 결정하세요!'
+  '고민하지 말고 바로 결정하세요!',
+  '오늘의 선택은 데굴이에게 맡겨도 좋아요!',
+  '가장 먼저 도착한 데굴이의 자신감 있는 선택이에요!',
+  '이 정도면 운명이라고 불러도 괜찮겠어요!',
+  '데굴데굴 굴러온 만큼 확실한 선택이에요!'
 ];
 
 export const ResultOverlay: React.FC<ResultOverlayProps> = ({
@@ -31,20 +36,13 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   winnerSpeech,
   rankings,
   onReplay,
-  onEditPlayers
+  onEditPlayers,
+  characterPreviews
 }) => {
+  const [cheerMessage] = useState(() => COMMENTS[Math.floor(Math.random() * COMMENTS.length)]);
   if (!isOpen) return null;
 
-  const [commentIndex, setCommentIndex] = useState(0);
   const charData = CHARACTER_DATA[winnerCharKey] || CHARACTER_DATA['bear'];
-
-  const handlePrevComment = () => {
-    setCommentIndex((prev) => (prev > 0 ? prev - 1 : COMMENTS.length - 1));
-  };
-
-  const handleNextComment = () => {
-    setCommentIndex((prev) => (prev < COMMENTS.length - 1 ? prev + 1 : 0));
-  };
 
   return (
     <section id="result" className="overlay" aria-labelledby="result-title">
@@ -61,28 +59,23 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
         <h2 id="result-title">{winnerName}</h2>
 
         <div className="result-character">
-          <img id="result-character-image" src={charData.preview} alt={charData.name} />
-          <p id="result-speech" aria-live="polite">
-            {winnerSpeech || `${charData.name} 데굴이가 선택을 마쳤어요!`}
-          </p>
+          {characterPreviews[winnerCharKey] && (
+            <img id="result-character-image" src={characterPreviews[winnerCharKey]} alt={charData.name} />
+          )}
         </div>
 
         <div className="feedback-carousel">
-          <button id="comment-prev" type="button" aria-label="이전 한마디" onClick={handlePrevComment}>
-            ←
-          </button>
           <p id="result-copy" aria-live="polite">
-            {COMMENTS[commentIndex]}
+            {cheerMessage}
           </p>
-          <button id="comment-next" type="button" aria-label="다음 한마디" onClick={handleNextComment}>
-            →
-          </button>
         </div>
 
         <ol id="result-list">
           {rankings.map((item) => (
             <li key={item.rank}>
-              {item.rank}등: {item.name} ({item.charName})
+              <span className="rank-badge">{item.rank}등</span>
+              <span className="rank-name">{item.name}</span>
+              <span className="rank-character">({item.charName})</span>
             </li>
           ))}
         </ol>
