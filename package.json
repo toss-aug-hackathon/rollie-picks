@@ -1,7 +1,7 @@
 {
-  "name": "8tosshackerton",
+  "name": "rollie-picks",
   "version": "1.0.0",
-  "description": "",
+  "description": "물리 기반 캐릭터 레이스로 사람이나 선택지를 골라주는 앱",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
@@ -12,14 +12,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kimjun-dev/tossexample.git"
+    "url": "git+https://github.com/toss-aug-hackathon/rollie-picks.git"
   },
-  "keywords": [],
+  "keywords": [
+    "apps-in-toss",
+    "three.js",
+    "rapier"
+  ],
   "type": "module",
   "bugs": {
-    "url": "https://github.com/kimjun-dev/tossexample/issues"
+    "url": "https://github.com/toss-aug-hackathon/rollie-picks/issues"
   },
-  "homepage": "https://github.com/kimjun-dev/tossexample#readme",
+  "homepage": "https://github.com/toss-aug-hackathon/rollie-picks#readme",
   "dependencies": {
     "@apps-in-toss/web-framework": "^3.0.3",
     "@dimforge/rapier3d-compat": "^0.20.0",
