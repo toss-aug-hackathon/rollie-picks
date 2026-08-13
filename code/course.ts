@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 
-export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, activeTheme, screenToWorldY }) {
+export interface CourseParams {
+  width: number;
+  courseHeight: number;
+  startLineY: number;
+  floorY: number;
+  wallZ: number;
+  activeTheme: string;
+  screenToWorldY: (screenY: number) => number;
+}
+
+export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, activeTheme, screenToWorldY }: CourseParams) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = courseHeight;
@@ -35,17 +45,17 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     river: '#53b9d8',
     riverHighlight: '#a7e8ef',
 
-    treeTrunk: '#79563c',
-    treeDark: '#327552',
-    tree: '#419262',
-    treeLight: '#6ab673',
+    treeTrunk: '#7a5a40',
+    tree: '#4f9b5a',
+    treeDark: '#3d8347',
+    treeLight: '#73c37e',
 
-    rock: '#839a90',
-    rockLight: '#b3c6b8',
+    rock: '#9ba5a0',
+    rockLight: '#c2ccc7',
 
-    flowerPink: '#ef9caf',
-    flowerYellow: '#f2ca62',
-    flowerWhite: '#fff8e8',
+    flowerYellow: '#ffd859',
+    flowerPink: '#ff9ebb',
+    flowerWhite: '#ffffff',
 
     text: '#315444'
   };
@@ -61,7 +71,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     return (seed - 1) / 2147483646;
   };
 
-  const range = (min, max) => min + (max - min) * random();
+  const range = (min: number, max: number) => min + (max - min) * random();
 
   // ------------------------------------------------------------
   // Sky
@@ -84,8 +94,8 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   // Drawing helpers
   // ------------------------------------------------------------
   const drawCloud = (
-    x,
-    y,
+    x: number,
+    y: number,
     scale = 1,
     alpha = 0.85
   ) => {
@@ -157,6 +167,14 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     color,
     alpha = 1,
     snow = false
+  }: {
+    x: number;
+    baseY: number;
+    width: number;
+    height: number;
+    color: string;
+    alpha?: number;
+    snow?: boolean;
   }) => {
     ctx.save();
 
@@ -230,10 +248,10 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   };
 
   const drawHill = (
-    y,
-    color,
-    amplitude,
-    phase
+    y: number,
+    color: string,
+    amplitude: number,
+    phase: number
   ) => {
     ctx.fillStyle = color;
 
@@ -268,8 +286,8 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   };
 
   const drawTree = (
-    x,
-    y,
+    x: number,
+    y: number,
     scale = 1,
     variation = 0
   ) => {
@@ -375,8 +393,8 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   };
 
   const drawRock = (
-    x,
-    y,
+    x: number,
+    y: number,
     scale = 1
   ) => {
     ctx.save();
@@ -433,10 +451,10 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   };
 
   const drawFlower = (
-    x,
-    y,
-    scale,
-    color
+    x: number,
+    y: number,
+    scale: number,
+    color: string
   ) => {
     ctx.save();
 
@@ -946,7 +964,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   const nightMarkerCanvas = document.createElement('canvas');
   nightMarkerCanvas.width = width;
   nightMarkerCanvas.height = canvas.height;
-  const nightMarkerContext = nightMarkerCanvas.getContext('2d');
+  const nightMarkerContext = nightMarkerCanvas.getContext('2d')!;
   nightMarkerContext.textAlign = 'center';
   nightMarkerContext.font = '800 15px Jua, system-ui';
   nightMarkerContext.lineCap = 'round';
