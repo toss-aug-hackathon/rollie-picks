@@ -64,11 +64,22 @@ export const App: React.FC = () => {
     void engineRef.current.startRace();
   };
 
+  const signalLightsOn = countdownStr === '3' ? 1 : countdownStr === '2' ? 2 : countdownStr === '1' ? 3 : 0;
+
   const handleOpenMenu = () => {
     setActiveScreen('paused');
   };
 
   const handleResumeMenu = () => {
+    setActiveScreen('playing');
+  };
+
+  const handleRestartMenu = () => {
+    if (engineRef.current) {
+      engineRef.current.setParticipants(participants);
+      engineRef.current.resetRace();
+    }
+    setPlacementMode(true);
     setActiveScreen('playing');
   };
 
@@ -138,10 +149,12 @@ export const App: React.FC = () => {
       />
 
       {countdownVisible && (
-        <div id="race-start" aria-live="assertive">
+        <div id="race-start" className={countdownStr === '출발!' ? 'is-go' : ''} aria-live="assertive">
           <div className="start-board">
             <div className="signal-lights" aria-hidden="true">
-              <i className="on"></i><i></i><i></i>
+              {[0, 1, 2].map((lightIndex) => (
+                <i key={lightIndex} className={lightIndex < signalLightsOn ? 'on' : ''}></i>
+              ))}
             </div>
             <div id="start-count">{countdownStr}</div>
             <div id="start-caption">선택 준비</div>
@@ -176,6 +189,7 @@ export const App: React.FC = () => {
       <PauseModal
         isOpen={activeScreen === 'paused'}
         onResume={handleResumeMenu}
+        onRestart={handleRestartMenu}
         onQuit={handleQuitMenu}
       />
 
