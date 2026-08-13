@@ -125,22 +125,23 @@
     #setup .mini-character-picker { position: relative; min-height: 132px; display: flex; align-items: center; justify-content: space-between; padding: 4px; background: rgb(255 255 255 / 34%); }
     #setup .mini-character-preview { position: absolute; top: 3px; left: 50%; width: 112px; height: 118px; display: grid; place-items: center; grid-template-rows: 88px 22px; row-gap: 6px; transform: translateX(-50%); font-size: 12px; font-weight: 800; touch-action: pan-y; cursor: grab; }
     #setup .mini-character-preview img { width: 112px; max-width: none; height: 88px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgb(24 24 27 / 24%)); }
-    #setup .mini-character-preview span { position: relative; z-index: 2; width: max-content; max-width: 112px; padding: 2px 6px; overflow: visible; border: 2px solid var(--setup-ink); border-radius: 999px; background: #fff; font-size: 11px; line-height: 16px; white-space: nowrap; color: #0f172a; }
-    #setup .character-step { position: relative; top: -8px; z-index: 3; width: 44px; height: 44px; padding: 0; border: 0; color: var(--setup-ink); background: transparent; box-shadow: none; font-family: Arial, sans-serif; font-size: 36px; font-weight: 700; line-height: 1; }
-    #setup .character-step,
-    #setup #setup-submit { transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; }
-    #setup .character-step:active,
-    #setup #setup-submit:active:not(:disabled) { transform: translateY(3px); }
-    #setup .mini-character-picker[aria-disabled="true"] { opacity: .35; }
+    #setup .mini-character-preview span { position: relative; z-index: 2; width: max-content; max-width: 120px; padding: 4px 10px; border: 2px solid var(--setup-ink); border-radius: 999px; background: #ffffff; font-size: 12px; font-weight: 800; line-height: 1.2; white-space: nowrap; color: #18181b; box-shadow: 2px 2px 0 var(--setup-ink); }
+    #setup .character-step { position: relative; top: -4px; z-index: 3; width: 36px; height: 36px; padding: 0; border: 0; color: var(--setup-ink); background: transparent !important; box-shadow: none !important; font-family: Arial, sans-serif; font-size: 32px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; opacity: 0.8; transition: transform 0.15s ease, opacity 0.15s ease; }
+    #setup .character-step:hover:not(:disabled) { opacity: 1; transform: scale(1.2); }
+    #setup .character-step:active:not(:disabled) { transform: scale(0.9); }
+    #setup .character-step:disabled { opacity: 0.25; cursor: not-allowed; }
+    #setup .participant.is-disabled { opacity: 0.42; filter: grayscale(85%); box-shadow: 2px 2px 0 var(--setup-ink); border-style: dashed; transition: opacity 0.25s ease, filter 0.25s ease; }
+    #setup .participant.is-disabled:hover, #setup .participant.is-disabled:focus-within { opacity: 0.95; filter: grayscale(0%); border-style: solid; }
     #setup #name-fields select option:disabled { color: #a1a1aa; }
     #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
     #setup .settings { display: flex; justify-content: center; gap: 18px; margin: 8px 0 4px; color: var(--setup-ink); font-size: 14px; font-weight: 800; }
     #setup .settings label { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
-    #setup .settings input { appearance: none; width: 20px; height: 20px; margin: 0; border: 2px solid var(--setup-ink); border-radius: 4px; background: #fff; box-shadow: 2px 2px 0 var(--setup-ink); }
-    #setup .settings input:checked { background: var(--setup-orange); box-shadow: 2px 2px 0 var(--setup-ink), inset 0 0 0 4px #fff; }
+    #setup .settings input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 0; border: 2.5px solid var(--setup-ink); border-radius: 6px; background: #ffffff; box-shadow: 2px 2px 0 var(--setup-ink); cursor: pointer; display: inline-grid; place-content: center; transition: all 0.15s ease; }
+    #setup .settings input:checked { background: var(--setup-orange) !important; border-color: var(--setup-ink) !important; box-shadow: 2px 2px 0 var(--setup-ink) !important; }
+    #setup .settings input:checked::after { content: "✓"; color: #ffffff; font-size: 14px; font-weight: 900; line-height: 1; }
     #setup .settings select { padding: 4px 8px; border: 2px solid var(--setup-ink); border-radius: 8px; color: var(--setup-ink); background: #fff; font-weight: 800; box-shadow: 2px 2px 0 var(--setup-ink); }
     #setup .setup-footer { margin-top: auto; padding-top: 0; text-align: center; }
-    #setup #setup-submit { width: 100%; padding: 15px 12px; border-radius: 9px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
+    #setup #setup-submit { width: 100%; padding: 15px 12px; border-radius: 999px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
     #setup #setup-submit:not(:disabled):hover { background: var(--setup-orange-dark); }
     #setup #setup-submit:disabled { color: #71717a; background: #e4e4e7; cursor: not-allowed; }
     #setup :focus-visible { outline: 4px solid rgb(250 204 21 / 45%); outline-offset: 2px; }
@@ -165,18 +166,21 @@
     html[data-theme="night"] #setup #decision-question { background: #1e293b; border-color: #475569; color: #f8fafc; box-shadow: 4px 4px 0 #000; }
     html[data-theme="night"] #setup #decision-question::placeholder { color: #64748b; }
     html[data-theme="night"] #setup .participant { background: #1e293b; border-color: #475569; box-shadow: 4px 4px 0 #000; }
+    html[data-theme="night"] #setup .participant.is-disabled { opacity: 0.32; filter: grayscale(90%); box-shadow: 2px 2px 0 #000; }
     html[data-theme="night"] #setup .setup-card--yellow { background: linear-gradient(180deg, #2d261e 0%, #1e1b18 100%); }
     html[data-theme="night"] #setup .setup-card--rose { background: linear-gradient(180deg, #2e1d24 0%, #1e1519 100%); }
     html[data-theme="night"] #setup .setup-card--indigo { background: linear-gradient(180deg, #1e2338 0%, #151828 100%); }
     html[data-theme="night"] #setup .setup-card--sky { background: linear-gradient(180deg, #192738 0%, #121c28 100%); }
     html[data-theme="night"] #setup #name-fields input { background: rgba(15, 23, 42, 0.8); color: #f8fafc; border-bottom-color: #475569; }
     html[data-theme="night"] #setup #name-fields input::placeholder { color: #64748b; }
-    html[data-theme="night"] #setup .mini-character-preview span { background: #0f172a; color: #f8fafc !important; border-color: #475569; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
-    html[data-theme="night"] #setup .character-step { color: #cbd5e1; background: rgba(255, 255, 255, 0.1); }
-    html[data-theme="night"] #setup .character-step:hover { background: rgba(255, 255, 255, 0.2); color: #ffffff; }
+    html[data-theme="night"] #setup .mini-character-preview span { background: #1e293b; color: #f8fafc !important; border-color: #64748b; box-shadow: 2px 2px 0 #000; }
+    html[data-theme="night"] #setup .character-step { color: #f8fafc; background: transparent !important; opacity: 0.85; }
+    html[data-theme="night"] #setup .character-step:hover:not(:disabled) { opacity: 1; color: #ffffff; }
     html[data-theme="night"] #setup .settings { color: #f8fafc; }
     html[data-theme="night"] #setup .settings select { color: #f8fafc; background: #1e293b; border-color: #475569; box-shadow: 2px 2px 0 #000; }
-    html[data-theme="night"] #setup .settings input { background: #0f172a; border-color: #475569; box-shadow: 2px 2px 0 #000; }
+    html[data-theme="night"] #setup .settings input { background: #1e293b; border-color: #64748b; box-shadow: 2px 2px 0 #000; }
+    html[data-theme="night"] #setup .settings input:checked { background: #f97316 !important; border-color: #f8fafc !important; box-shadow: 2px 2px 0 #000 !important; }
+    html[data-theme="night"] #setup .settings input:checked::after { color: #ffffff; font-size: 14px; font-weight: 900; }
     html[data-theme="night"] #hud { background: #1e293b; border-color: #475569; color: #f8fafc; box-shadow: 4px 4px 0 #000; }
     html[data-theme="night"] #race-question, html[data-theme="night"] #race-timer { color: #f8fafc; }
     html[data-theme="night"] #status { background: #7e22ce; color: #ffffff; border-color: #a855f7; box-shadow: 2px 2px 0 #000; }

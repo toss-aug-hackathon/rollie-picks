@@ -95,10 +95,14 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           {participants.map((item, i) => {
             const charData = CHARACTER_DATA[item.characterKey];
             const isOptional = i >= 2;
+            const isDisabled = isOptional && !item.name.trim();
             const placeholder = isOptional ? `${i + 1}번째 선택지 (선택)` : `${i + 1}번째 선택지`;
 
             return (
-              <div key={i} className={`participant setup-card ${CARD_CLASSES[i]}`}>
+              <div
+                key={i}
+                className={`participant setup-card ${CARD_CLASSES[i]} ${isDisabled ? 'is-disabled' : ''}`}
+              >
                 <input
                   name="name"
                   maxLength={10}
@@ -107,23 +111,25 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   onChange={(e) => handleNameChange(i, e.target.value)}
                   required={!isOptional}
                 />
-                <div className="mini-character-picker">
+                <div className="mini-character-picker" aria-disabled={isDisabled}>
                   <button
                     className="character-step"
                     type="button"
                     onClick={() => handleStepCharacter(i, -1)}
+                    disabled={isDisabled}
                     aria-label="이전 캐릭터"
                   >
                     ‹
                   </button>
                   <div className="mini-character-preview">
                     <img src={charData.preview} alt={charData.name} />
-                    <span>{charData.name}</span>
+                    <span>{isDisabled ? '선택 안 됨' : charData.name}</span>
                   </div>
                   <button
                     className="character-step"
                     type="button"
                     onClick={() => handleStepCharacter(i, 1)}
+                    disabled={isDisabled}
                     aria-label="다음 캐릭터"
                   >
                     ›
