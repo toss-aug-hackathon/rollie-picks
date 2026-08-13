@@ -21,7 +21,7 @@ interface SetupScreenProps {
   characterPreviews: CharacterPreviewMap;
 }
 
-const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'ghost', 'mole'];
+const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'turtle'];
 const CARD_CLASSES = ['setup-card--yellow', 'setup-card--rose', 'setup-card--indigo', 'setup-card--sky'];
 const QUESTION_MAX_LENGTH = 30;
 const PARTICIPANT_MAX_LENGTH = 12;
