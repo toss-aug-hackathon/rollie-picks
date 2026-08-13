@@ -236,13 +236,48 @@
     html[data-theme="night"] #result-list li { background: #1e293b; border-color: #334155; color: #f8fafc; }
     html[data-theme="night"] #result-list li:first-child { background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); color: #ffffff; border-color: rgba(168, 85, 247, 0.4); }
 
+    /* Hamburger Menu Button & Modal */
+    .hud-controls { display: flex; align-items: center; gap: 8px; }
+    #menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1.5px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      pointer-events: auto;
+      transition: all 0.2s ease;
+    }
+    #menu-btn:hover { background: #ffffff; transform: scale(1.08); }
+    #menu-btn:active { transform: scale(0.92); }
+    html[data-theme="night"] #menu-btn { color: #f8fafc; background: rgba(30, 41, 59, 0.85); border-color: rgba(255, 255, 255, 0.2); }
+
+    .menu-card { text-align: center; padding: 32px 24px 28px; }
+    .menu-card h2 { font-size: 26px; margin: 0 0 8px; color: #0f172a; }
+    .menu-card p { margin: 0 0 24px; color: #64748b; font-size: 15px; font-weight: 600; line-height: 1.5; }
+    .menu-actions { display: flex; flex-direction: column; gap: 10px; }
+
     @media (hover: hover) { button:hover { filter: brightness(1.08); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
   </style>
 </head>
 <body>
   <main id="game" data-mode="choice" aria-label="데굴이가 골라줘 선택 도우미">
-    <div id="hud"><span id="race-question">데굴이가 골라줘</span><span id="status">준비</span><span id="race-timer">00:00.00</span></div>
+    <div id="hud">
+      <span id="race-question">데굴이가 골라줘</span>
+      <div class="hud-controls">
+        <span id="status">준비</span>
+        <button id="menu-btn" type="button" aria-label="메뉴 열기">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        </button>
+      </div>
+      <span id="race-timer">00:00.00</span>
+    </div>
     <button id="guide" type="button">선택 결과 확인하기</button>
     <div id="race-start" aria-live="assertive" hidden><div class="start-board"><div class="signal-lights" aria-hidden="true"><i></i><i></i><i></i></div><div id="start-count">3</div><div id="start-caption">선택 준비</div></div></div>
     <div id="error">서비스를 불러오지 못했어요.<br />화면을 새로고침해 주세요.</div>
@@ -324,6 +359,15 @@
         <div class="actions">
           <button id="edit-players" class="secondary" type="button">선택지 변경</button>
           <button id="replay" class="primary" type="button">다시 골라줘</button>
+        </div>
+    </section>
+    <section id="menu-modal" class="overlay" aria-labelledby="menu-title" hidden>
+      <div class="card menu-card">
+        <h2 id="menu-title">일시정지</h2>
+        <p id="menu-desc">선택 레이스가 진행 중이에요.<br />무엇을 할까요?</p>
+        <div class="actions menu-actions">
+          <button id="menu-resume" class="primary" type="button">계속하기</button>
+          <button id="menu-quit" class="secondary" type="button">그만하기 (처음으로)</button>
         </div>
       </div>
     </section>

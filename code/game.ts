@@ -113,6 +113,10 @@ const characterSteps = Array.from(document.querySelectorAll<HTMLButtonElement>('
 const result = document.querySelector<HTMLElement>('#result');
 const resultTitle = document.querySelector<HTMLElement>('#result-title');
 const resultCopy = document.querySelector<HTMLElement>('#result-copy');
+const menuBtn = document.querySelector<HTMLButtonElement>('#menu-btn');
+const menuModal = document.querySelector<HTMLElement>('#menu-modal');
+const menuResumeBtn = document.querySelector<HTMLButtonElement>('#menu-resume');
+const menuQuitBtn = document.querySelector<HTMLButtonElement>('#menu-quit');
 const resultList = document.querySelector<HTMLElement>('#result-list');
 const resultCharacterImage = document.querySelector<HTMLImageElement>('#result-character-image');
 const resultSpeech = document.querySelector<HTMLElement>('#result-speech');
@@ -1375,6 +1379,24 @@ if (replayBtn) {
 const editPlayersBtn = document.querySelector('#edit-players');
 if (editPlayersBtn) {
   editPlayersBtn.addEventListener('click', () => {
+    if (result) result.hidden = true;
+    if (setup) showOverlay(setup);
+  });
+}
+if (menuBtn) {
+  menuBtn.addEventListener('click', () => {
+    if (menuModal) showOverlay(menuModal);
+  });
+}
+if (menuResumeBtn) {
+  menuResumeBtn.addEventListener('click', () => {
+    if (menuModal) hideOverlay(menuModal);
+  });
+}
+if (menuQuitBtn) {
+  menuQuitBtn.addEventListener('click', () => {
+    if (menuModal) hideOverlay(menuModal);
+    resetRace();
     if (result) result.hidden = true;
     if (setup) showOverlay(setup);
   });
