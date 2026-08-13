@@ -57,5 +57,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [soundEnabled, hapticEnabled, themeMode]);
 
-  return <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        display: 'block',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        touchAction: 'none',
+        zIndex: 1
+      }}
+    />
+  );
 };
