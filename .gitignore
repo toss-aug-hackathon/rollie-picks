@@ -1,4 +1,32 @@
+# Dependencies and build outputs
 node_modules/
 dist/
 .granite/
 *.ait
+
+# Local environment files
+.env
+.env.*
+!.env.example
+*.local
+
+# Tool caches and test outputs
+.vite/
+*.tsbuildinfo
+coverage/
+.cache/
+.eslintcache
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor settings
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
