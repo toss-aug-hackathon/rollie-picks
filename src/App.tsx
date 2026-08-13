@@ -11,10 +11,10 @@ export const App: React.FC = () => {
   
   const [question, setQuestion] = useState('');
   const [participants, setParticipants] = useState<ParticipantState[]>([
-    { name: '', characterKey: 'bear' },
-    { name: '', characterKey: 'rabbit' },
-    { name: '', characterKey: 'cat' },
-    { name: '', characterKey: 'duck' }
+    { name: '', characterKey: 'bear', enabled: true },
+    { name: '', characterKey: 'rabbit', enabled: true },
+    { name: '', characterKey: 'cat', enabled: false },
+    { name: '', characterKey: 'duck', enabled: false }
   ]);
 
   const [soundEnabled, setSoundEnabled] = useState(true);

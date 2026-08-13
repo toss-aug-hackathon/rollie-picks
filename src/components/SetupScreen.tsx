@@ -4,6 +4,7 @@ import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '..
 export interface ParticipantState {
   name: string;
   characterKey: CharacterKey;
+  enabled: boolean;
 }
 
 interface SetupScreenProps {
@@ -77,7 +78,14 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     });
   };
 
-  const isValid = question.trim().length > 0 && participants[0].name.trim().length > 0 && participants[1].name.trim().length > 0;
+  const handleSlotToggle = (index: number) => {
+    setParticipants((prev) => prev.map((participant, participantIndex) => participantIndex === index
+      ? { ...participant, enabled: !participant.enabled, name: participant.enabled ? '' : participant.name }
+      : participant));
+  };
+
+  const allEnabledParticipantsNamed = participants.every((participant) => !participant.enabled || participant.name.trim());
+  const isValid = question.trim().length > 0 && allEnabledParticipantsNamed;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,8 +94,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
 
-    if (!participants[0].name.trim() || !participants[1].name.trim()) {
-      setToastMessage('선택지 2개를 모두 적어주세요.');
+    if (!allEnabledParticipantsNamed) {
+      setToastMessage('선택지를 모두 적어주세요.');
       return;
     }
 
@@ -125,27 +133,35 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           {participants.map((item, i) => {
             const charData = CHARACTER_DATA[item.characterKey];
             const isOptional = i >= 2;
-            const isDisabled = isOptional && !item.name.trim();
+            const isDisabled = isOptional && !item.enabled;
             const placeholder = isOptional ? `${i + 1}번째 선택지 (선택)` : `${i + 1}번째 선택지`;
 
             return (
               <div
                 key={i}
                 className={`participant setup-card ${CARD_CLASSES[i]} ${isDisabled ? 'is-disabled' : ''}`}
+                onClick={(event) => {
+                  const target = event.target as HTMLElement;
+                  if (isOptional && !target.closest('button') && (isDisabled || !target.closest('input'))) {
+                    handleSlotToggle(i);
+                  }
+                }}
               >
                 <input
                   name="name"
                   maxLength={PARTICIPANT_MAX_LENGTH}
                   placeholder={placeholder}
                   value={item.name}
+                  readOnly={isDisabled}
+                  aria-disabled={isDisabled}
                   onChange={(e) => handleNameChange(i, e.target.value)}
                 />
                 <div className="mini-character-picker" aria-disabled={isDisabled}>
                   <button
                     className="character-step"
                     type="button"
-                    onClick={() => handleStepCharacter(i, -1)}
-                    disabled={isDisabled}
+                    onClick={() => isDisabled ? handleSlotToggle(i) : handleStepCharacter(i, -1)}
+                    aria-disabled={isDisabled}
                     aria-label="이전 캐릭터"
                   >
                     ‹
@@ -161,8 +177,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   <button
                     className="character-step"
                     type="button"
-                    onClick={() => handleStepCharacter(i, 1)}
-                    disabled={isDisabled}
+                    onClick={() => isDisabled ? handleSlotToggle(i) : handleStepCharacter(i, 1)}
+                    aria-disabled={isDisabled}
                     aria-label="다음 캐릭터"
                   >
                     ›

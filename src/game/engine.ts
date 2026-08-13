@@ -10,13 +10,13 @@ const START_Y = START_LINE_Y - 55;
 // Keep the generated 724x4044 course artwork at its original aspect ratio
 // instead of stretching it to an arbitrary tall gameplay plane.
 const COURSE_HEIGHT = Math.round(WIDTH * (4044 / 724));
-const FLOOR_Y = COURSE_HEIGHT - 180;
+const FLOOR_Y = COURSE_HEIGHT - 290;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
 const MOLE_UP_TIME = 2.2;
 const ROLL_SPEED = 1.3;
 const CATCH_UP_GAP = 48;
-const CATCH_UP_BOOST = 1.24;
+const CATCH_UP_MAX_BOOST = 1.35;
 const NIGHT_START = 19;
 const NIGHT_END = 6;
 const WALL_Z = -5;
@@ -27,14 +27,14 @@ const EDGE_INWARD_FORCE = 18;
 const GHOST_FLY_TIME = 6;
 const GHOST_SPEED = 155;
 const ROCK_COUNT = 3;
-const RIVER_TOP_Y = 430;
-const RIVER_BOTTOM_Y = 585;
-const BRIDGE_HALF_WIDTH = 64;
+const RIVER_TOP_Y = 880;
+const RIVER_BOTTOM_Y = 1230;
+const BRIDGE_HALF_WIDTH = 44;
 const WATER_SPEED = 0.72;
 
 export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle' | 'ghost' | 'mole';
 export type ThemeMode = 'auto' | 'day' | 'night';
-export type CharacterPreviewMap = Partial<Record<CharacterKey, string>>;
+export type CharacterPreviewMap = Partial<Record<CharacterKey | `${CharacterKey}-result`, string>>;
 
 export interface RacerInfo {
   name: string;
@@ -78,8 +78,13 @@ function ghostStep(x: number, direction: number, dt: number) {
   return { x: next, direction };
 }
 
+function catchUpMultiplier(gap: number) {
+  return 1 + Math.min(1, Math.max(0, gap / CATCH_UP_GAP)) * (CATCH_UP_MAX_BOOST - 1);
+}
+
 console.assert(ghostStep(WIDTH / 2 + 55, -1, 0.1).direction === -1, 'ghost entrance failed');
 console.assert(ghostStep(140, 1, 0.1).direction === -1, 'ghost turn failed');
+console.assert(catchUpMultiplier(0) === 1 && catchUpMultiplier(CATCH_UP_GAP) === CATCH_UP_MAX_BOOST, 'catch-up boost failed');
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -267,6 +272,7 @@ export class GameEngine {
     const group = new THREE.Group();
     const doll = new THREE.Group();
     const accents: THREE.Object3D[] = [];
+    const motionParts: Record<string, THREE.Object3D | THREE.Object3D[]> = {};
     group.add(doll);
     const fur = new THREE.MeshStandardMaterial({ color: COLORS[key] || 0xc6a27f, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 0.8, roughness: 1 });
     const dark = new THREE.MeshBasicMaterial({ color: key === 'cat' ? 0xd8d6df : 0x332b30 });
@@ -298,11 +304,12 @@ export class GameEngine {
       rim.position.set(0, -3, 4);
       doll.add(rim);
       accents.push(rim);
+      motionParts.shell = rim;
     }
     ball([19, 25, 11], [0, -3, 0]);
     ball([22, 20, 12], [0, 25, 0]);
-    limb(7, 20, [-23, 13, 0], 0.78);
-    limb(7, 20, [23, 13, 0], -0.78);
+    const leftArm = limb(7, 20, [-23, 13, 0], 0.78);
+    const rightArm = limb(7, 20, [23, 13, 0], -0.78);
     limb(8, 18, [-10, -30, 0], -0.34);
     limb(8, 18, [10, -30, 0], 0.34);
 
@@ -312,10 +319,19 @@ export class GameEngine {
       ball([8, 8, 6], [-14, 43, 0]);
       ball([8, 8, 6], [14, 43, 0]);
     } else if (key === 'rabbit') {
-      accents.push(limb(4.5, 19, [-7, 45, 0], -0.08), limb(4.5, 19, [7, 45, 0], 0.08));
+      const ears = [limb(4.5, 19, [-7, 45, 0], -0.08), limb(4.5, 19, [7, 45, 0], 0.08)];
+      accents.push(...ears);
+      motionParts.ears = ears;
     } else if (key === 'cat') {
       limb(5, 7, [-12, 39, 0], -0.25);
       limb(5, 7, [12, 39, 0], 0.25);
+      const tail = new THREE.Mesh(new THREE.TorusGeometry(20, 3.5, 7, 24, Math.PI * 1.25), fur);
+      tail.position.set(17, -27, -7);
+      tail.rotation.z = -0.25;
+      doll.add(tail);
+      motionParts.tail = tail;
+    } else if (key === 'duck') {
+      motionParts.wings = [leftArm, rightArm];
     }
 
     const normalEyes: THREE.Mesh[] = [
@@ -332,12 +348,47 @@ export class GameEngine {
     const readyFace = new THREE.Group(); readyFace.visible = false; doll.add(readyFace);
     const hitFace = new THREE.Group(); hitFace.visible = false; doll.add(hitFace);
     const resultFace = new THREE.Group(); resultFace.visible = false; doll.add(resultFace);
+    const faceBar = (face: THREE.Group, x: number, y: number, rotation = 0, width = 7) => {
+      const bar = new THREE.Mesh(new THREE.CapsuleGeometry(1.15, width, 3, 6), dark);
+      bar.position.set(x, y, 12.5);
+      bar.rotation.z = rotation;
+      face.add(bar);
+    };
+    faceBar(readyFace, -6, 28.5, Math.PI / 2);
+    faceBar(readyFace, 6, 28.5, Math.PI / 2);
+    [-6, 6].forEach((x) => {
+      faceBar(hitFace, x, 28.5, Math.PI / 4, 6);
+      faceBar(hitFace, x, 28.5, -Math.PI / 4, 6);
+    });
+    faceBar(resultFace, -6, 28.5, Math.PI / 2);
+    faceBar(resultFace, 6, 28.5, Math.PI / 2);
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(4.5, 1, 5, 12, Math.PI), dark);
+    smile.position.set(0, 20, 12.5);
+    smile.rotation.z = Math.PI;
+    resultFace.add(smile);
+
+    const effect = new THREE.Group();
+    effect.visible = false;
+    effect.position.z = 18;
+    const effectPart = (geometry: THREE.BufferGeometry, color: number, x: number, y: number, scaleX = 1, scaleY = scaleX, role = '') => {
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color, transparent: true, depthTest: false, side: THREE.DoubleSide }));
+      mesh.position.set(x, y, 0);
+      mesh.scale.set(scaleX, scaleY, 1);
+      mesh.userData = { baseX: x, baseY: y, baseScaleX: scaleX, baseScaleY: scaleY, role };
+      effect.add(mesh);
+    };
+    if (key === 'bear') {
+      [[-24, -35], [24, -35], [-38, -31], [38, -31]].forEach(([x, y]) => effectPart(new THREE.CircleGeometry(1, 10), 0xd6b48b, x, y, 7, 4, 'dust'));
+      effectPart(new THREE.CircleGeometry(1, 12), 0x8b5e3c, 0, -38, 8, 6, 'paw');
+      [-7, 0, 7].forEach((x) => effectPart(new THREE.CircleGeometry(1, 10), 0x8b5e3c, x, -29, 2.5, 3, 'paw'));
+    }
+    group.add(effect);
 
     accents.forEach((part) => {
       part.userData.baseRotationZ = part.rotation.z;
       part.userData.baseScaleY = part.scale.y;
     });
-    group.userData = { doll, accents, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
+    group.userData = { doll, accents, effect, motionParts, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
     targetScene.add(group);
     return group;
   }
@@ -362,9 +413,12 @@ export class GameEngine {
       const model = this.makeVisual(key, previewScene);
       model.position.y = -4;
       model.rotation.y = -0.08;
-      this.setExpression(model, 'ready');
+      this.setExpression(model, 'neutral');
       previewRenderer.render(previewScene, previewCamera);
       previews[key] = previewRenderer.domElement.toDataURL('image/png');
+      this.setExpression(model, 'result');
+      previewRenderer.render(previewScene, previewCamera);
+      previews[`${key}-result`] = previewRenderer.domElement.toDataURL('image/png');
       previewScene.remove(model);
       model.traverse((part: THREE.Object3D) => {
         const mesh = part as THREE.Mesh;
@@ -388,11 +442,15 @@ export class GameEngine {
     const textureLoader = new THREE.TextureLoader();
     const moleTexture = textureLoader.load(new URL('../assets/obstacles/mole-plush.webp', import.meta.url).href);
     const ghostTexture = textureLoader.load(new URL('../assets/obstacles/ghost-plush.webp', import.meta.url).href);
+    const moleHitTexture = textureLoader.load(new URL('../assets/obstacles/mole-plush-hit.webp', import.meta.url).href);
+    const ghostHitTexture = textureLoader.load(new URL('../assets/obstacles/ghost-plush-hit.webp', import.meta.url).href);
     moleTexture.colorSpace = THREE.SRGBColorSpace;
     ghostTexture.colorSpace = THREE.SRGBColorSpace;
+    moleHitTexture.colorSpace = THREE.SRGBColorSpace;
+    ghostHitTexture.colorSpace = THREE.SRGBColorSpace;
     const head = new THREE.Mesh(
       new THREE.PlaneGeometry(92, 78),
-      new THREE.MeshBasicMaterial({ map: moleTexture, transparent: true, alphaTest: 0.04 })
+      new THREE.MeshBasicMaterial({ map: moleTexture, alphaTest: 0.35 })
     );
     head.position.set(0, 18, 2);
     group.add(dirt, head);
@@ -407,13 +465,15 @@ export class GameEngine {
       body
     );
     collider.setEnabled(false);
-    return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
+    return { group, dirt, head, body, collider, moleTexture, ghostTexture, moleHitTexture, ghostHitTexture, phase: 'hidden', timer: 1.2, hit: 0 };
   }
 
   private createRock() {
+    const texture = new THREE.TextureLoader().load(new URL('../assets/obstacles/rock.webp', import.meta.url).href);
+    texture.colorSpace = THREE.SRGBColorSpace;
     const mesh = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(18, 0),
-      new THREE.MeshStandardMaterial({ color: 0x87918d, roughness: 1, flatShading: true })
+      new THREE.PlaneGeometry(62, 56),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.04 })
     );
     mesh.position.z = 12;
     this.scene.add(mesh);
@@ -432,12 +492,12 @@ export class GameEngine {
   private randomizeRocks() {
     this.rocks.forEach((rock, index) => {
       let courseY = 560 + index * ((FLOOR_Y - 720) / Math.max(1, ROCK_COUNT - 1)) + THREE.MathUtils.randFloat(-45, 45);
-      if (Math.abs(courseY - COURSE_HEIGHT / 2) < 230) courseY += courseY < COURSE_HEIGHT / 2 ? -230 : 230;
+      if (courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y) courseY = RIVER_BOTTOM_Y + 90;
       const x = THREE.MathUtils.randFloat(-115, 115);
       const y = this.screenToWorldY(courseY);
       const scale = THREE.MathUtils.randFloat(0.82, 1.18);
       rock.mesh.position.set(x, y, 12);
-      rock.mesh.rotation.z = Math.random() * Math.PI;
+      rock.mesh.rotation.z = THREE.MathUtils.randFloat(-Math.PI / 4, Math.PI / 4);
       rock.mesh.scale.set(scale, scale * THREE.MathUtils.randFloat(0.8, 1.05), scale);
       rock.body.setNextKinematicTranslation({ x, y, z: GRIP_Z });
     });
@@ -472,6 +532,7 @@ export class GameEngine {
       isFlipping: false,
       knockbackUntil: 0,
       expressionUntil: 0,
+      effectTime: 0,
       stickDuration: initialGrip,
       lastProgressY: startY,
       stalledFor: 0,
@@ -613,6 +674,7 @@ export class GameEngine {
     racer.stickDuration = 0.5 + Math.random() * 0.35;
     racer.gripElapsed = -racer.stickDuration;
     racer.isFlipping = false;
+    if (racer.characterKey === 'bear') racer.effectTime = 0.42;
   }
 
   private rotationSinceFlip(racer: any) {
@@ -647,10 +709,12 @@ export class GameEngine {
     racer.isFlipping = false;
     racer.knockbackUntil = 0;
     racer.expressionUntil = 0;
+    racer.effectTime = 0;
     racer.stickDuration = 0;
     racer.stalledFor = 0;
     racer.placed = false;
     racer.visual.visible = racer.active;
+    if (racer.visual.userData.effect) racer.visual.userData.effect.visible = false;
   }
 
   private placeRacer(racer: any, x: number, worldY: number) {
@@ -742,10 +806,15 @@ export class GameEngine {
     }
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
+    (this.mole.head.material as THREE.MeshBasicMaterial).map = this.mole.hit ? this.mole.moleHitTexture : this.mole.moleTexture;
     if (this.mole.timer <= 0) {
       if (this.mole.phase === 'hidden') {
         const x = THREE.MathUtils.randFloat(-125, 125);
         const y = this.cameraY - THREE.MathUtils.randFloat(190, 330);
+        if (this.isRiverOrBridge(y)) {
+          this.mole.timer = 0.25;
+          return;
+        }
         this.mole.body.setNextKinematicTranslation({ x, y, z: 15 });
         this.mole.group.position.set(x, y, 15);
         this.mole.group.visible = true;
@@ -772,6 +841,7 @@ export class GameEngine {
   private updateGhost(dt: number) {
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
+    (this.mole.head.material as THREE.MeshBasicMaterial).map = this.mole.hit ? this.mole.ghostHitTexture : this.mole.ghostTexture;
     if (this.mole.phase === 'hidden') {
       if (this.mole.timer > 0) return;
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -800,12 +870,38 @@ export class GameEngine {
     this.mole.head.scale.set(1 + squash, 1 - squash * 0.45, 1);
   }
 
-  private setExpression(visual: THREE.Group, expression: 'neutral' | 'ready' | 'result') {
+  private setExpression(visual: THREE.Group, expression: 'neutral' | 'ready' | 'hit' | 'result') {
     const { faces } = visual.userData;
     if (!faces) return;
-    faces.normalEyes.forEach((eye: THREE.Mesh) => { eye.visible = expression !== 'result'; });
+    faces.normalEyes.forEach((eye: THREE.Mesh) => { eye.visible = expression === 'neutral'; });
     faces.ready.visible = expression === 'ready';
+    faces.hit.visible = expression === 'hit';
     faces.result.visible = expression === 'result';
+  }
+
+  private updateCharacterEffect(racer: any) {
+    const { effect, key } = racer.visual.userData;
+    if (!effect) return;
+    const active = key === 'bear' && racer.effectTime > 0;
+    effect.visible = active;
+    if (!active) return;
+
+    effect.quaternion.copy(racer.visual.quaternion).invert();
+    const fade = Math.min(1, racer.effectTime / 0.32);
+    effect.children.forEach((part: any) => {
+      const material = part.material as THREE.MeshBasicMaterial;
+      const { baseX, baseY, baseScaleX, baseScaleY, role } = part.userData;
+      part.visible = true;
+      part.position.set(baseX, baseY, 0);
+      part.scale.set(baseScaleX, baseScaleY, 1);
+
+      if (key === 'bear') {
+        const elapsed = 1 - fade;
+        part.position.x *= 1 + elapsed * 0.45;
+        part.position.y += elapsed * 7;
+        material.opacity = role === 'dust' ? fade * 0.28 : fade * 0.4;
+      }
+    });
   }
 
   private finishRace(winner: any) {
@@ -841,12 +937,16 @@ export class GameEngine {
     if (!active.length) return;
     const progress = active.map((racer) => this.anchorProgressY(racer));
     const leaderY = Math.min(...progress);
-    const lastY = Math.max(...progress);
-    const boostedRacer = lastY - leaderY >= CATCH_UP_GAP ? active[progress.lastIndexOf(lastY)] : undefined;
 
     active.forEach((racer) => {
       const position = racer.body.translation();
-      const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
+      const inWater = this.isWater(position.x, position.y);
+      racer.effectTime = Math.max(0, racer.effectTime - dt);
+      if (racer.expressionUntil && racer.expressionUntil <= this.raceElapsed) {
+        racer.expressionUntil = 0;
+        this.setExpression(racer.visual, 'neutral');
+      }
+      const catchUpBoost = catchUpMultiplier(this.anchorProgressY(racer) - leaderY);
       const speed = ROLL_SPEED * catchUpBoost * (this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
       racer.gripElapsed += dt * speed;
 
@@ -858,13 +958,12 @@ export class GameEngine {
 
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
-        const slowedByWater = this.isWater(position.x, position.y);
         const rollingSpeed = ROLL_SPEED * catchUpBoost
           * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2)))
-          * (slowedByWater ? WATER_SPEED : 1);
+          * (inWater ? WATER_SPEED : 1);
         if (racer.knockbackUntil > this.raceElapsed) {
           racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
-        } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
+        } else if (inWater || angular.x * racer.flipAxisX < rollingSpeed) {
           racer.body.setAngvel({ x: racer.flipAxisX * rollingSpeed, y: angular.y, z: angular.z }, true);
         }
       }
@@ -893,7 +992,7 @@ export class GameEngine {
       racer.visual.position.set(nextPosition.x, nextPosition.y, nextPosition.z);
       const rotation = racer.body.rotation();
       racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
-      const { doll, accents, key } = racer.visual.userData;
+      const { doll, accents, motionParts, key } = racer.visual.userData;
       doll.position.set(0, 0, 0);
       doll.rotation.set(0, 0, 0);
       doll.scale.set(1, 1, 1);
@@ -902,16 +1001,26 @@ export class GameEngine {
         part.scale.y = part.userData.baseScaleY;
       });
       if (key === 'bear') doll.position.y = Math.sin(this.raceElapsed * 3.2) * 1.1;
-      else if (key === 'rabbit') accents.forEach((ear: THREE.Object3D, index: number) => { ear.rotation.z += Math.sin(this.raceElapsed * 9 + index * Math.PI) * 0.13; });
-      else if (key === 'cat') doll.rotation.y = Math.sin(this.raceElapsed * 6) * 0.09;
+      else if (key === 'rabbit') (motionParts.ears as THREE.Object3D[]).forEach((ear, index) => {
+        ear.rotation.z += Math.sin(this.raceElapsed * 11 + index * Math.PI) * (racer.isFlipping ? 0.32 : 0.1);
+        ear.scale.y = racer.isFlipping ? 1.18 : 1;
+      });
+      else if (key === 'cat') {
+        doll.rotation.y = Math.sin(this.raceElapsed * 6) * 0.09;
+        (motionParts.tail as THREE.Object3D).rotation.z = -0.25 + Math.sin(this.raceElapsed * 8) * (racer.isFlipping ? 0.42 : 0.15);
+      }
       else if (key === 'duck') {
         const bounce = Math.sin(this.raceElapsed * 7) * 0.025;
         doll.scale.set(1 + bounce, 1 - bounce, 1);
         accents[0].scale.y *= 1 + Math.abs(bounce) * 2;
+        (motionParts.wings as THREE.Object3D[]).forEach((wing, index) => {
+          wing.rotation.z = (index ? -1 : 1) * (0.78 + Math.sin(this.raceElapsed * 14 + index * Math.PI) * (racer.isFlipping ? 0.42 : 0.12));
+        });
       } else if (key === 'turtle') {
         doll.rotation.z = Math.sin(this.raceElapsed * 2.4) * 0.025;
-        accents.forEach((shell: THREE.Object3D) => { shell.rotation.z += Math.sin(this.raceElapsed * 2.4) * 0.04; });
+        (motionParts.shell as THREE.Object3D).rotation.z += racer.isFlipping ? 0.09 : Math.sin(this.raceElapsed * 2.4) * 0.025;
       }
+      this.updateCharacterEffect(racer);
       const progressY = this.anchorProgressY(racer);
       if (progressY < racer.lastProgressY - 18) {
         racer.lastProgressY = progressY;
@@ -941,6 +1050,11 @@ export class GameEngine {
     return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y && Math.abs(x) > BRIDGE_HALF_WIDTH;
   }
 
+  private isRiverOrBridge(worldY: number) {
+    const courseY = HEIGHT / 2 - worldY;
+    return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y;
+  }
+
   public applyTheme(mode: ThemeMode) {
     this.themeMode = mode;
     this.activeTheme = this.themeForMode(mode);
@@ -968,7 +1082,11 @@ export class GameEngine {
 
     if (this.mole) {
       const material = this.mole.head.material as THREE.MeshBasicMaterial;
-      material.map = night ? this.mole.ghostTexture : this.mole.moleTexture;
+      material.map = night
+        ? (this.mole.hit ? this.mole.ghostHitTexture : this.mole.ghostTexture)
+        : (this.mole.hit ? this.mole.moleHitTexture : this.mole.moleTexture);
+      material.transparent = night;
+      material.alphaTest = night ? 0.04 : 0.35;
       material.needsUpdate = true;
       this.mole.dirt.visible = !night && this.mole.group.visible;
     }
@@ -1001,6 +1119,7 @@ export class GameEngine {
     this.racers.filter((racer) => racer.active).forEach((racer) => {
       racer.gripElapsed = 0;
       racer.isFlipping = false;
+      this.setExpression(racer.visual, 'neutral');
       racer.body.wakeUp();
     });
     this.running = true;
@@ -1101,13 +1220,20 @@ export class GameEngine {
             const obstacleHit = handleA === obstacle?.collider.handle ? racerB : handleB === obstacle?.collider.handle ? racerA : undefined;
             if (started && obstacleHit !== undefined) {
               const racer = this.racers[obstacleHit];
+              racer.expressionUntil = this.raceElapsed + 0.7;
+              this.setExpression(racer.visual, 'hit');
               const direction = Math.sign(racer.body.translation().x - obstacle.body.translation().x) || 1;
               const mass = racer.body.mass();
-              while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
-              if (!racer.isFlipping) this.beginFlip(racer);
-              racer.knockbackUntil = this.raceElapsed + 0.65;
-              racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
-              if (obstacle === this.mole) this.mole.hit = 0.18;
+              if (obstacle === this.mole) {
+                while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
+                if (!racer.isFlipping) this.beginFlip(racer);
+                racer.knockbackUntil = this.raceElapsed + 0.65;
+                racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
+                this.mole.hit = 0.18;
+              } else {
+                racer.gripElapsed += 0.12;
+                racer.body.applyImpulse({ x: direction * mass * 120, y: mass * 100, z: 0 }, true);
+              }
             }
           });
           impacted.forEach((index) => {
