@@ -156,15 +156,15 @@
 
 ## 11. 기술 구성
 
-- **렌더링 프레임워크:** Phaser
-- **물리 엔진:** Phaser Matter Physics
-- **개발 언어:** TypeScript
+- **렌더링 라이브러리:** Three.js
+- **물리 엔진:** Rapier
+- **개발 언어:** JavaScript
 - **빌드 도구:** Vite
 - **앱인토스 연동:** `@apps-in-toss/web-framework`
 - **화면 방식:** 모바일 세로형 WebGL/Canvas
 - **데이터 저장:** 초기 버전은 기기 내부 저장
 
-Matter Physics를 이용해 중력, 마찰, 회전, 충돌, 벽 부착을 구현합니다.
+Rapier를 이용해 중력, 마찰, 회전, 충돌, 벽 부착을 구현합니다.
 
 ## 12. MVP 범위
 
