@@ -341,8 +341,8 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   drawThemeMap(nightCtx, nightColors, true);
 
   const textureLoader = new THREE.TextureLoader();
-  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course.webp', import.meta.url).href);
-  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night.webp', import.meta.url).href);
+  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-long.png', import.meta.url).href);
+  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night-long.png', import.meta.url).href);
   [dayCourseTexture, nightCourseTexture].forEach((texture) => {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
@@ -411,5 +411,16 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkers.renderOrder = -99;
   nightMarkers.visible = activeTheme === 'night';
 
-  return { wall, markers, nightMarkers, dayCourseTexture, nightCourseTexture };
+  const finishTexture = textureLoader.load(new URL('../assets/backgrounds/finish-line.png', import.meta.url).href);
+  finishTexture.colorSpace = THREE.SRGBColorSpace;
+  finishTexture.minFilter = THREE.LinearFilter;
+  finishTexture.magFilter = THREE.LinearFilter;
+  const finishLineHeight = width * (74 / 481);
+  const finishLine = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, finishLineHeight),
+    new THREE.MeshBasicMaterial({ map: finishTexture, transparent: true, depthWrite: false })
+  );
+  finishLine.position.set(0, screenToWorldY(floorY), wallZ + 0.2);
+
+  return { wall, markers, nightMarkers, finishLine, dayCourseTexture, nightCourseTexture };
 }
