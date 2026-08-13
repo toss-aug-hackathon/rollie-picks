@@ -148,10 +148,6 @@ export class GameEngine {
   private finishTimeoutId: number | null = null;
   private draggedRacer: any = null;
   private dragOrigin: { x: number; y: number } | null = null;
-  private motionListening = false;
-  private lastMotionMagnitude: number | undefined;
-  private shakeBoostUntil = 0;
-  private lastShakeAt = 0;
   private lastRacerImpactFeedbackAt = 0;
 
   constructor(options: GameEngineOptions) {
@@ -1212,9 +1208,8 @@ export class GameEngine {
         if (racer.stalledFor > 2.5 && this.raceElapsed > 4) {
           this.recoverStalledRacer(racer);
         }
-        const shakeBoosted = performance.now() < this.shakeBoostUntil;
         const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
-        const speed = ROLL_SPEED * catchUpBoost * (shakeBoosted ? 3.2 : this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
+        const speed = ROLL_SPEED * catchUpBoost * (this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
         racer.gripElapsed += dt * speed;
         const firstRelease = racer.anchors.length > 1 && racer.gripElapsed >= 0;
         const readyToFlip = racer.anchors.length === 1 && !racer.isFlipping && racer.gripElapsed >= 0;
@@ -1223,7 +1218,7 @@ export class GameEngine {
         if (racer.isFlipping) {
           const angular = racer.body.angvel();
           const slowedByWater = this.isWater(position.x, position.y);
-          const rollingSpeed = ROLL_SPEED * catchUpBoost * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (shakeBoosted ? 1.45 : 1) * (slowedByWater ? WATER_SPEED : 1);
+          const rollingSpeed = ROLL_SPEED * catchUpBoost * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2))) * (slowedByWater ? WATER_SPEED : 1);
           if (knockedBack) {
             racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
           } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
@@ -1258,7 +1253,7 @@ export class GameEngine {
       this.camera.position.y = this.cameraY;
       if (!this.finished) {
         const progress = Math.max(0, Math.min(99, Math.round((this.screenToWorldY(START_Y) - lowest) / (FLOOR_Y - START_Y) * 100)));
-        this.options.onStatusUpdate(performance.now() < this.shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `데굴 중 ${progress}%`);
+        this.options.onStatusUpdate(`데굴 중 ${progress}%`);
         this.options.onProgressUpdate?.(progress);
         if (this.raceElapsed >= RACE_LIMIT) {
           const choice = active.reduce((selected, racer) => racer.body.translation().y < selected.body.translation().y ? racer : selected);
@@ -1270,36 +1265,6 @@ export class GameEngine {
 
   private isWater(x: number, worldY: number) {
     return this.isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
-  }
-
-  private motionMagnitude(acceleration: { x?: number | null; y?: number | null; z?: number | null } | null) {
-    return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
-  }
-
-  private handleDeviceMotion = (event: DeviceMotionEvent) => {
-    if (!this.running) return;
-    const acceleration = event.acceleration;
-    const magnitude = this.motionMagnitude(acceleration || event.accelerationIncludingGravity);
-    const intensity = acceleration ? magnitude : Math.abs(magnitude - (this.lastMotionMagnitude ?? magnitude));
-    this.lastMotionMagnitude = magnitude;
-    const now = performance.now();
-    if (intensity < 9 || now - this.lastShakeAt < 250) return;
-    this.lastShakeAt = now;
-    this.shakeBoostUntil = now + 1200;
-    triggerHaptic(this.hapticEnabled, 'softMedium', 25);
-  };
-
-  private async enableMotionSensor() {
-    if (this.motionListening || typeof DeviceMotionEvent === 'undefined') return;
-    try {
-      const DeviceMotionEventClass = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
-      if (typeof DeviceMotionEventClass.requestPermission === 'function'
-        && await DeviceMotionEventClass.requestPermission() !== 'granted') return;
-      window.addEventListener('devicemotion', this.handleDeviceMotion);
-      this.motionListening = true;
-    } catch (error) {
-      console.warn('기기 흔들기 감지를 사용할 수 없어요.', error);
-    }
   }
 
   private prepareAudio() {
@@ -1410,7 +1375,6 @@ export class GameEngine {
       racer.placementTween?.kill();
       racer.placementTween = null;
     });
-    await this.enableMotionSensor();
     const token = ++this.countdownToken;
     this.finished = false;
     this.options.onCountdownUpdate('3', true);
@@ -1445,8 +1409,6 @@ export class GameEngine {
     this.running = false;
     this.finished = false;
     this.raceElapsed = 0;
-    this.shakeBoostUntil = 0;
-    this.lastMotionMagnitude = undefined;
     this.draggedRacer = null;
     if (this.mole) this.resetMole();
     this.randomizeRocks();
@@ -1592,7 +1554,6 @@ export class GameEngine {
     this.canvas.removeEventListener('pointerup', this.handlePointerUp);
     this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    if (this.motionListening) window.removeEventListener('devicemotion', this.handleDeviceMotion);
     if (this.audioContext && this.audioContext.state !== 'closed') {
       void this.audioContext.close().catch(() => {});
     }
