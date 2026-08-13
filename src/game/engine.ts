@@ -64,10 +64,10 @@ export const CHARACTER_DATA: Record<CharacterKey, { name: string; icon: string; 
 
 const COLORS: Record<string, number> = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, turtle: 0x8eb879, ghost: 0xffffff, mole: 0x765038 };
 const PAD_POINTS = [
-  new THREE.Vector3(-27, 27, 0),
-  new THREE.Vector3(27, 27, 0),
-  new THREE.Vector3(-18, -35, 0),
-  new THREE.Vector3(18, -35, 0)
+  new THREE.Vector3(-33, 14, 0),
+  new THREE.Vector3(33, 14, 0),
+  new THREE.Vector3(-15, -42, 0),
+  new THREE.Vector3(15, -42, 0)
 ];
 const START_PADS = [[0, 1, 2, 3], [1, 0, 3, 2], [0, 1, 2, 3], [1, 0, 3, 2]];
 
@@ -274,11 +274,14 @@ export class GameEngine {
     const accents: THREE.Object3D[] = [];
     const motionParts: Record<string, THREE.Object3D | THREE.Object3D[]> = {};
     group.add(doll);
-    const fur = new THREE.MeshStandardMaterial({ color: COLORS[key] || 0xc6a27f, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 0.8, roughness: 1 });
+    const fur = new THREE.MeshStandardMaterial({ color: COLORS[key] || 0xc6a27f, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 1.15, roughness: 1 });
     const dark = new THREE.MeshBasicMaterial({ color: key === 'cat' ? 0xd8d6df : 0x332b30 });
+    const nose = new THREE.MeshBasicMaterial({ color: key === 'rabbit' ? 0xe89b9b : 0x332b30 });
+    const eyeShine = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const pink = new THREE.MeshBasicMaterial({ color: 0xe89b9b });
     const orange = new THREE.MeshStandardMaterial({ color: 0xe9873a, roughness: 0.9 });
     const paw = new THREE.MeshStandardMaterial({ color: key === 'duck' ? 0xe99a47 : key === 'turtle' ? 0xc5d891 : 0xe8d4bf, roughness: 0.95 });
+    const muzzle = new THREE.MeshStandardMaterial({ color: key === 'cat' ? 0xe8e3dc : key === 'turtle' ? 0xd6e3b4 : 0xf1ddc5, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 0.7, roughness: 1 });
 
     const ball = (scale: [number, number, number], position: [number, number, number], material: THREE.Material = fur) => {
       const mesh = new THREE.Mesh(this.sphereGeometry, material);
@@ -287,9 +290,9 @@ export class GameEngine {
       doll.add(mesh);
       return mesh;
     };
-    const limb = (radius: number, length: number, position: [number, number, number], rotation: number) => {
+    const limb = (radius: number, length: number, position: [number, number, number], rotation: number, material: THREE.Material = fur) => {
       const geometry = new THREE.CapsuleGeometry(radius, length, 5, 10);
-      const mesh = new THREE.Mesh(geometry, fur);
+      const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(...position);
       mesh.rotation.z = rotation;
       doll.add(mesh);
@@ -298,72 +301,116 @@ export class GameEngine {
 
     if (key === 'turtle') {
       const shell = new THREE.MeshStandardMaterial({ color: 0x557a43, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 1, roughness: 1 });
-      ball([26, 29, 8], [0, -3, -5], shell);
+      ball([24, 25, 8], [0, -8, -6], shell);
       const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 8, 24), new THREE.MeshStandardMaterial({ color: 0x355d37, roughness: 1 }));
-      rim.scale.set(22, 25, 2);
-      rim.position.set(0, -3, 4);
+      rim.scale.set(20, 22, 2);
+      rim.position.set(0, -8, 4);
       doll.add(rim);
       accents.push(rim);
       motionParts.shell = rim;
     }
-    ball([19, 25, 11], [0, -3, 0]);
-    ball([22, 20, 12], [0, 25, 0]);
-    const leftArm = limb(7, 20, [-23, 13, 0], 0.78);
-    const rightArm = limb(7, 20, [23, 13, 0], -0.78);
-    limb(8, 18, [-10, -30, 0], -0.34);
-    limb(8, 18, [10, -30, 0], 0.34);
+    ball([20, 22, 12], [0, -8, 0]);
+    ball([27, key === 'duck' ? 24 : 25, 14], [0, 25, 1]);
+    const leftArm = limb(7.5, 12, [-23, 5, 0], 0.88);
+    const rightArm = limb(7.5, 12, [23, 5, 0], -0.88);
+    limb(8, 10, [-10, -30, 0], -0.3);
+    limb(8, 10, [10, -30, 0], 0.3);
 
-    if (key === 'turtle') ball([14, 18, 2], [0, -4, 10], paw);
+    if (key === 'turtle') ball([13, 15, 2], [0, -8, 12], paw);
 
     if (key === 'bear') {
-      ball([8, 8, 6], [-14, 43, 0]);
-      ball([8, 8, 6], [14, 43, 0]);
+      ball([9, 9, 6], [-17, 45, 0]);
+      ball([9, 9, 6], [17, 45, 0]);
+      ball([5, 5, 1.5], [-17, 45, 6], paw);
+      ball([5, 5, 1.5], [17, 45, 6], paw);
     } else if (key === 'rabbit') {
-      const ears = [limb(4.5, 19, [-7, 45, 0], -0.08), limb(4.5, 19, [7, 45, 0], 0.08)];
+      const ears = [limb(6, 18, [-9, 49, 0], -0.12), limb(6, 18, [9, 49, 0], 0.12)];
+      ears.forEach((ear) => {
+        const inner = new THREE.Mesh(new THREE.CapsuleGeometry(2.6, 13, 4, 8), pink);
+        inner.position.z = 6;
+        ear.add(inner);
+      });
       accents.push(...ears);
       motionParts.ears = ears;
     } else if (key === 'cat') {
-      limb(5, 7, [-12, 39, 0], -0.25);
-      limb(5, 7, [12, 39, 0], 0.25);
-      const tail = new THREE.Mesh(new THREE.TorusGeometry(20, 3.5, 7, 24, Math.PI * 1.25), fur);
-      tail.position.set(17, -27, -7);
-      tail.rotation.z = -0.25;
+      [-15, 15].forEach((x) => {
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(9, 19, 12), fur);
+        ear.position.set(x, 47, 0);
+        ear.rotation.z = x < 0 ? -0.18 : 0.18;
+        doll.add(ear);
+      });
+      const tail = new THREE.Mesh(new THREE.TorusGeometry(12, 4, 8, 24, Math.PI * 1.15), fur);
+      tail.position.set(16, -31, -9);
+      tail.rotation.z = -0.15;
       doll.add(tail);
       motionParts.tail = tail;
     } else if (key === 'duck') {
       motionParts.wings = [leftArm, rightArm];
     }
 
-    const normalEyes: THREE.Mesh[] = [
-      ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
-      ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
-    ];
-    if (key === 'duck') accents.push(ball([5.8, 2.9, 2.4], [0, 22, 12], orange));
-    else ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' ? pink : dark);
-    ball([4.2, 4.2, 1.8], [-34, 26, 7], paw);
-    ball([4.2, 4.2, 1.8], [34, 26, 7], paw);
-    ball([4.5, 4.5, 1.8], [-16, -45, 7], paw);
-    ball([4.5, 4.5, 1.8], [16, -45, 7], paw);
+    const normalEyes: THREE.Mesh[] = [-8, 8].map((x) => {
+      const eye = ball([2.5, 2.8, 1.2], [x, 30, 14], dark);
+      const shine = new THREE.Mesh(this.sphereGeometry, eyeShine);
+      shine.scale.set(0.26, 0.26, 0.35);
+      shine.position.set(-0.35, 0.38, 0.9);
+      eye.add(shine);
+      return eye;
+    });
+    if (key === 'duck') {
+      const bill = ball([9, 4.5, 2.8], [0, 20, 14], orange);
+      bill.scale.x = 9;
+      accents.push(bill);
+    } else if (key === 'turtle') {
+      ball([8, 5.5, 2.5], [0, 18, 13.5], muzzle);
+      [-1, 1].forEach((side) => {
+        const mouth = new THREE.Mesh(new THREE.CapsuleGeometry(0.75, 3.6, 3, 6), dark);
+        mouth.position.set(side * 2.2, 18.5, 16.5);
+        mouth.rotation.z = side * -1.05;
+        doll.add(mouth);
+        normalEyes.push(mouth);
+      });
+    } else {
+      ball([10, 7, 3], [0, 18, 13], muzzle);
+      ball([3.2, 2.7, 1.8], [0, 21, 16], nose);
+      if (key === 'rabbit') {
+        [-1, 1].forEach((side) => {
+          const mouth = new THREE.Mesh(new THREE.CapsuleGeometry(0.65, 3, 3, 6), dark);
+          mouth.position.set(side * 1.8, 17.5, 16.5);
+          mouth.rotation.z = side * 0.9;
+          doll.add(mouth);
+          normalEyes.push(mouth);
+        });
+        normalEyes.push(ball([2, 2.8, 1], [0, 14.5, 16], pink));
+      }
+    }
+    if (key === 'rabbit' || key === 'duck') {
+      ball([4.2, 2.3, 0.8], [-17, 21, 13], pink);
+      ball([4.2, 2.3, 0.8], [17, 21, 13], pink);
+    }
+    ball([5, 4.2, 1.8], [-33, 14, 8], paw);
+    ball([5, 4.2, 1.8], [33, 14, 8], paw);
+    ball([5.5, 4.8, 1.8], [-15, -42, 8], paw);
+    ball([5.5, 4.8, 1.8], [15, -42, 8], paw);
 
     const readyFace = new THREE.Group(); readyFace.visible = false; doll.add(readyFace);
     const hitFace = new THREE.Group(); hitFace.visible = false; doll.add(hitFace);
     const resultFace = new THREE.Group(); resultFace.visible = false; doll.add(resultFace);
     const faceBar = (face: THREE.Group, x: number, y: number, rotation = 0, width = 7) => {
       const bar = new THREE.Mesh(new THREE.CapsuleGeometry(1.15, width, 3, 6), dark);
-      bar.position.set(x, y, 12.5);
+      bar.position.set(x, y, 16);
       bar.rotation.z = rotation;
       face.add(bar);
     };
-    faceBar(readyFace, -6, 28.5, Math.PI / 2);
-    faceBar(readyFace, 6, 28.5, Math.PI / 2);
-    [-6, 6].forEach((x) => {
-      faceBar(hitFace, x, 28.5, Math.PI / 4, 6);
-      faceBar(hitFace, x, 28.5, -Math.PI / 4, 6);
+    faceBar(readyFace, -8, 30, Math.PI / 2, 8);
+    faceBar(readyFace, 8, 30, Math.PI / 2, 8);
+    [-8, 8].forEach((x) => {
+      faceBar(hitFace, x, 30, Math.PI / 4, 7);
+      faceBar(hitFace, x, 30, -Math.PI / 4, 7);
     });
-    faceBar(resultFace, -6, 28.5, Math.PI / 2);
-    faceBar(resultFace, 6, 28.5, Math.PI / 2);
-    const smile = new THREE.Mesh(new THREE.TorusGeometry(4.5, 1, 5, 12, Math.PI), dark);
-    smile.position.set(0, 20, 12.5);
+    faceBar(resultFace, -8, 30, Math.PI / 2, 8);
+    faceBar(resultFace, 8, 30, Math.PI / 2, 8);
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(5.5, 1, 5, 16, Math.PI), dark);
+    smile.position.set(0, 17, 16);
     smile.rotation.z = Math.PI;
     resultFace.add(smile);
 
@@ -1007,7 +1054,7 @@ export class GameEngine {
       });
       else if (key === 'cat') {
         doll.rotation.y = Math.sin(this.raceElapsed * 6) * 0.09;
-        (motionParts.tail as THREE.Object3D).rotation.z = -0.25 + Math.sin(this.raceElapsed * 8) * (racer.isFlipping ? 0.42 : 0.15);
+        (motionParts.tail as THREE.Object3D).rotation.z = -0.15 + Math.sin(this.raceElapsed * 8) * (racer.isFlipping ? 0.32 : 0.12);
       }
       else if (key === 'duck') {
         const bounce = Math.sin(this.raceElapsed * 7) * 0.025;

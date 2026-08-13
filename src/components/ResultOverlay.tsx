@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA } from '../game/engine';
+import tiredBear from '../assets/characters/tired/bear.webp';
+import tiredRabbit from '../assets/characters/tired/rabbit.webp';
+import tiredCat from '../assets/characters/tired/cat.webp';
+import tiredDuck from '../assets/characters/tired/duck.webp';
+import tiredTurtle from '../assets/characters/tired/turtle.webp';
+import cryingBear from '../assets/characters/crying/bear.webp';
+import cryingRabbit from '../assets/characters/crying/rabbit.webp';
+import cryingCat from '../assets/characters/crying/cat.webp';
+import cryingDuck from '../assets/characters/crying/duck.webp';
+import cryingTurtle from '../assets/characters/crying/turtle.webp';
 
 export interface RankingItem {
   rank: number;
@@ -29,6 +39,22 @@ const COMMENTS = [
   '데굴데굴 굴러온 만큼 확실한 선택이에요!'
 ];
 
+const TIRED_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
+  bear: tiredBear,
+  rabbit: tiredRabbit,
+  cat: tiredCat,
+  duck: tiredDuck,
+  turtle: tiredTurtle
+};
+
+const CRYING_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
+  bear: cryingBear,
+  rabbit: cryingRabbit,
+  cat: cryingCat,
+  duck: cryingDuck,
+  turtle: cryingTurtle
+};
+
 export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   isOpen,
   winnerName,
@@ -40,13 +66,51 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   characterPreviews
 }) => {
   const [cheerMessage] = useState(() => COMMENTS[Math.floor(Math.random() * COMMENTS.length)]);
+  const [showReplayConfirm, setShowReplayConfirm] = useState(false);
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
   if (!isOpen) return null;
 
   const charData = CHARACTER_DATA[winnerCharKey] || CHARACTER_DATA['bear'];
 
   return (
     <section id="result" className="overlay" aria-labelledby="result-title">
-      <div className="card">
+      <div className={`card ${showReplayConfirm ? 'replay-card' : ''}`}>
+        {showReplayConfirm ? (
+          <div className="replay-confirm">
+            <h2 id="result-title">{showFinalConfirm ? '진짜?' : <>또 다시<br />굴러오라고...?</>}</h2>
+            <div className={`replay-pile ${showFinalConfirm ? 'is-crying' : ''}`} data-count={rankings.length} aria-label={showFinalConfirm ? '울면서 서 있는 데굴이들' : '지쳐 쓰러진 데굴이들'}>
+              {rankings.map((item, index) => (
+                <div className="pile-character" key={item.rank}>
+                  <img
+                    src={(showFinalConfirm ? CRYING_CHARACTER_IMAGES[item.key] : TIRED_CHARACTER_IMAGES[item.key]) || characterPreviews[item.key]}
+                    alt={`${showFinalConfirm ? '우는' : '지친'} ${item.charName}`}
+                  />
+                  {!showFinalConfirm && index === 1 && <span className="pile-sweat" aria-hidden="true">💧</span>}
+                </div>
+              ))}
+            </div>
+            <div className="replay-actions">
+              <button className="primary" type="button" onClick={() => {
+                if (showFinalConfirm) {
+                  setShowReplayConfirm(false);
+                  setShowFinalConfirm(false);
+                  onReplay();
+                } else {
+                  setShowFinalConfirm(true);
+                }
+              }}>
+                {showFinalConfirm ? '응, 진짜!' : '그래, 한 번 더!'}
+              </button>
+              <button className="secondary" type="button" onClick={() => {
+                setShowReplayConfirm(false);
+                setShowFinalConfirm(false);
+              }}>
+                잠깐 쉴게
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         <div className="story-marquee" aria-hidden="true">
           <div className="story-marquee-track">
             <span>데굴이의 선택</span>
@@ -84,10 +148,12 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
           <button id="edit-players" className="secondary" type="button" onClick={onEditPlayers}>
             선택지 변경
           </button>
-          <button id="replay" className="primary" type="button" onClick={onReplay}>
+          <button id="replay" className="primary" type="button" onClick={() => setShowReplayConfirm(true)}>
             다시 골라줘
           </button>
         </div>
+          </>
+        )}
       </div>
     </section>
   );
