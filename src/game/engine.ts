@@ -116,7 +116,8 @@ export class GameEngine {
   private soundEnabled = true;
   private hapticEnabled = true;
   private audioContext: AudioContext | undefined;
-  private themeMode: ThemeMode = 'auto';
+  private resumeAudioAfterVisibility = false;
+  private themeMode: ThemeMode = 'day';
   private activeTheme: 'day' | 'night' = 'day';
 
   private courseWall?: THREE.Mesh;
@@ -132,6 +133,7 @@ export class GameEngine {
   private colliderRacers = new Map<number, number>();
   private mole: any;
   private animFrameId: number | null = null;
+  private resizeObserver?: ResizeObserver;
   private fabricTexture!: THREE.Texture;
   private sphereGeometry = new THREE.SphereGeometry(1, 16, 10);
   private participantData: RacerInfo[] = [
@@ -221,10 +223,13 @@ export class GameEngine {
 
     this.applyTheme(this.themeMode);
     this.resize();
+    this.resizeObserver = new ResizeObserver(this.resize);
+    this.resizeObserver.observe(this.canvas);
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
     this.canvas.addEventListener('pointermove', this.handlePointerMove);
     this.canvas.addEventListener('pointerup', this.handlePointerUp);
     this.canvas.addEventListener('pointercancel', this.handlePointerUp);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
 
     this.isInitialized = true;
     this.startLoop();
@@ -1250,10 +1255,30 @@ export class GameEngine {
   }
 
   private prepareAudio() {
-    if (!this.soundEnabled) return;
+    if (!this.soundEnabled || document.hidden) return;
     this.audioContext ||= new AudioContext();
-    if (this.audioContext.state === 'suspended') void this.audioContext.resume();
+    if (this.audioContext.state === 'suspended') {
+      void this.audioContext.resume().catch(() => {});
+    }
   }
+
+  private handleVisibilityChange = () => {
+    const audioContext = this.audioContext;
+    if (!audioContext || audioContext.state === 'closed') return;
+
+    if (document.hidden) {
+      this.resumeAudioAfterVisibility = this.soundEnabled && audioContext.state === 'running';
+      if (audioContext.state === 'running') {
+        void audioContext.suspend().catch(() => {});
+      }
+      return;
+    }
+
+    if (this.resumeAudioAfterVisibility && this.soundEnabled && audioContext.state === 'suspended') {
+      this.resumeAudioAfterVisibility = false;
+      void audioContext.resume().catch(() => {});
+    }
+  };
 
   private tone(frequency = 440, duration = 0.08) {
     if (!this.soundEnabled) return;
@@ -1281,7 +1306,7 @@ export class GameEngine {
 
     const night = this.activeTheme === 'night';
 
-    document.documentElement.setAttribute('data-theme', this.activeTheme);
+    document.getElementById('game')?.setAttribute('data-theme', this.activeTheme);
     (this.scene.background as THREE.Color).set(night ? 0x101936 : 0x8de8ee);
 
     this.hemisphereLight.intensity = night ? 1.35 : 2.2;
@@ -1306,6 +1331,16 @@ export class GameEngine {
 
   public setSoundEnabled(enabled: boolean) {
     this.soundEnabled = enabled;
+    if (!this.audioContext || this.audioContext.state === 'closed') return;
+
+    if (!enabled) {
+      this.resumeAudioAfterVisibility = false;
+      if (this.audioContext.state === 'running') {
+        void this.audioContext.suspend().catch(() => {});
+      }
+    } else if (!document.hidden && this.audioContext.state === 'suspended') {
+      void this.audioContext.resume().catch(() => {});
+    }
   }
 
   public setHapticEnabled(enabled: boolean) {
@@ -1490,11 +1525,16 @@ export class GameEngine {
       cancelAnimationFrame(this.animFrameId);
     }
     window.removeEventListener('resize', this.resize);
+    this.resizeObserver?.disconnect();
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     this.canvas.removeEventListener('pointermove', this.handlePointerMove);
     this.canvas.removeEventListener('pointerup', this.handlePointerUp);
     this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     if (this.motionListening) window.removeEventListener('devicemotion', this.handleDeviceMotion);
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      void this.audioContext.close().catch(() => {});
+    }
     this.renderer?.dispose();
   }
 }
