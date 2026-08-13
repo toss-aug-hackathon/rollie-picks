@@ -43,7 +43,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const updateAppHeight = () => {
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
+      document.documentElement.style.setProperty('--viewport-height', `${Math.round(viewportHeight)}px`);
     };
 
     updateAppHeight();
@@ -52,7 +52,7 @@ export const App: React.FC = () => {
     return () => {
       window.removeEventListener('resize', updateAppHeight);
       window.visualViewport?.removeEventListener('resize', updateAppHeight);
-      document.documentElement.style.removeProperty('--app-height');
+      document.documentElement.style.removeProperty('--viewport-height');
     };
   }, []);
 

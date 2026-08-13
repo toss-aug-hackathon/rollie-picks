@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA } from '../game/engine';
 import tiredBear from '../assets/characters/tired/bear.webp';
 import tiredRabbit from '../assets/characters/tired/rabbit.webp';
 import tiredCat from '../assets/characters/tired/cat.webp';
 import tiredDuck from '../assets/characters/tired/duck.webp';
 import tiredTurtle from '../assets/characters/tired/turtle.webp';
+import tiredDog from '../assets/characters/tired/dog.webp';
+import tiredFox from '../assets/characters/tired/fox.webp';
+import tiredPanda from '../assets/characters/tired/panda.webp';
+import tiredPig from '../assets/characters/tired/pig.webp';
+import tiredHamster from '../assets/characters/tired/hamster.webp';
 import cryingBear from '../assets/characters/crying/bear.webp';
 import cryingRabbit from '../assets/characters/crying/rabbit.webp';
 import cryingCat from '../assets/characters/crying/cat.webp';
 import cryingDuck from '../assets/characters/crying/duck.webp';
 import cryingTurtle from '../assets/characters/crying/turtle.webp';
+import cryingDog from '../assets/characters/crying/dog.webp';
+import cryingFox from '../assets/characters/crying/fox.webp';
+import cryingPanda from '../assets/characters/crying/panda.webp';
+import cryingPig from '../assets/characters/crying/pig.webp';
+import cryingHamster from '../assets/characters/crying/hamster.webp';
 
 export interface RankingItem {
   rank: number;
@@ -44,7 +54,12 @@ const TIRED_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
   rabbit: tiredRabbit,
   cat: tiredCat,
   duck: tiredDuck,
-  turtle: tiredTurtle
+  turtle: tiredTurtle,
+  dog: tiredDog,
+  fox: tiredFox,
+  panda: tiredPanda,
+  pig: tiredPig,
+  hamster: tiredHamster
 };
 
 const CRYING_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
@@ -52,7 +67,12 @@ const CRYING_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
   rabbit: cryingRabbit,
   cat: cryingCat,
   duck: cryingDuck,
-  turtle: cryingTurtle
+  turtle: cryingTurtle,
+  dog: cryingDog,
+  fox: cryingFox,
+  panda: cryingPanda,
+  pig: cryingPig,
+  hamster: cryingHamster
 };
 
 export const ResultOverlay: React.FC<ResultOverlayProps> = ({
@@ -68,6 +88,19 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   const [cheerMessage] = useState(() => COMMENTS[Math.floor(Math.random() * COMMENTS.length)]);
   const [showReplayConfirm, setShowReplayConfirm] = useState(false);
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    rankings.forEach((item) => {
+      [TIRED_CHARACTER_IMAGES[item.key], CRYING_CHARACTER_IMAGES[item.key]].forEach((src) => {
+        if (!src) return;
+        const image = new Image();
+        image.src = src;
+        void image.decode?.().catch(() => {});
+      });
+    });
+  }, [isOpen, rankings]);
+
   if (!isOpen) return null;
 
   const charData = CHARACTER_DATA[winnerCharKey] || CHARACTER_DATA['bear'];
@@ -77,7 +110,10 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
 
   return (
     <section id="result" className="overlay" aria-labelledby="result-title">
-      <div className={`card ${showReplayConfirm ? 'replay-card' : ''}`}>
+      <div
+        key={showFinalConfirm ? 'final-confirm' : showReplayConfirm ? 'replay-confirm' : 'result'}
+        className={`card ${showReplayConfirm ? 'replay-card' : ''}`}
+      >
         {showReplayConfirm ? (
           <div className="replay-confirm">
             <h2 id="result-title">{showFinalConfirm ? '진짜?' : <>또 다시<br />굴러오라고...?</>}</h2>

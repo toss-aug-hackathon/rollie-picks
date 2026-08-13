@@ -1441,8 +1441,7 @@ export class GameEngine {
 
     this.renderer.setSize(width, height, false);
     const visibleHeight = HEIGHT;
-    const visibleWidth = (visibleHeight * width) / height;
-
+    const visibleWidth = visibleHeight * (width / height);
     this.camera.left = -visibleWidth / 2;
     this.camera.right = visibleWidth / 2;
     this.camera.top = visibleHeight / 2;
