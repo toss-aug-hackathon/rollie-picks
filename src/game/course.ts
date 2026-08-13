@@ -10,6 +10,19 @@ export interface CourseParams {
   screenToWorldY: (screenY: number) => number;
 }
 
+const COURSE_TEXTURE_URL = {
+  day: new URL('../assets/backgrounds/rolling-course-long-bleed-1350.webp', import.meta.url).href,
+  night: new URL('../assets/backgrounds/rolling-course-night-long-bleed-1350.webp', import.meta.url).href,
+};
+
+export async function loadCourseTexture(theme: 'day' | 'night') {
+  const texture = await new THREE.TextureLoader().loadAsync(COURSE_TEXTURE_URL[theme]);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return texture;
+}
+
 export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, activeTheme, screenToWorldY }: CourseParams) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -340,18 +353,9 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   drawThemeMap(ctx, colors, false);
   drawThemeMap(nightCtx, nightColors, true);
 
-  const textureLoader = new THREE.TextureLoader();
-  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-long.png', import.meta.url).href);
-  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night-long.png', import.meta.url).href);
-  [dayCourseTexture, nightCourseTexture].forEach((texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-  });
-
   const wall = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, canvas.height),
-    new THREE.MeshBasicMaterial({ map: activeTheme === 'night' ? nightCourseTexture : dayCourseTexture, side: THREE.DoubleSide })
+    new THREE.PlaneGeometry(width * 1.5, canvas.height),
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
   );
   wall.position.set(0, screenToWorldY(canvas.height / 2), wallZ);
 
@@ -360,7 +364,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   markerCanvas.height = courseHeight;
   const markerContext = markerCanvas.getContext('2d')!;
 
-  const drawStartLine = (targetContext: CanvasRenderingContext2D, lineColor: string, textColor: string) => {
+  const drawStartLine = (targetContext: CanvasRenderingContext2D, lineColor: string, textColor: string, outlineColor: string, fontSize = 17) => {
     targetContext.save();
     targetContext.lineWidth = 5;
     targetContext.strokeStyle = lineColor;
@@ -370,11 +374,11 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     targetContext.lineTo(width - 22, startLineY);
     targetContext.stroke();
     targetContext.setLineDash([]);
-    targetContext.font = '900 17px "Noto Sans KR", Pretendard, sans-serif';
+    targetContext.font = `900 ${fontSize}px "Noto Sans KR", Pretendard, sans-serif`;
     targetContext.textAlign = 'center';
     targetContext.textBaseline = 'middle';
-    targetContext.lineWidth = 5;
-    targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
+    targetContext.lineWidth = 7;
+    targetContext.strokeStyle = outlineColor;
     // Keep the label in the restricted area below the line so it does not
     // overlap the characters waiting above the start line.
     targetContext.strokeText('출발선', width / 2, startLineY + 22);
@@ -383,7 +387,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     targetContext.restore();
   };
 
-  drawStartLine(markerContext, '#315444', colors.text);
+  drawStartLine(markerContext, '#315444', colors.text, '#ffffff');
 
   const markerTexture = new THREE.CanvasTexture(markerCanvas);
   markerTexture.colorSpace = THREE.SRGBColorSpace;
@@ -399,7 +403,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkerCanvas.width = width;
   nightMarkerCanvas.height = courseHeight;
   const nightMarkerContext = nightMarkerCanvas.getContext('2d')!;
-  drawStartLine(nightMarkerContext, '#d9efff', '#d9efff');
+  drawStartLine(nightMarkerContext, '#fff3a7', '#fff3a7', '#08111f', 20);
 
   const nightMarkerTexture = new THREE.CanvasTexture(nightMarkerCanvas);
   nightMarkerTexture.colorSpace = THREE.SRGBColorSpace;
@@ -411,7 +415,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkers.renderOrder = -99;
   nightMarkers.visible = activeTheme === 'night';
 
-  const finishTexture = textureLoader.load(new URL('../assets/backgrounds/finish-line.png', import.meta.url).href);
+  const finishTexture = new THREE.TextureLoader().load(new URL('../assets/backgrounds/finish-line.png', import.meta.url).href);
   finishTexture.colorSpace = THREE.SRGBColorSpace;
   finishTexture.minFilter = THREE.LinearFilter;
   finishTexture.magFilter = THREE.LinearFilter;
@@ -422,5 +426,5 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   );
   finishLine.position.set(0, screenToWorldY(floorY), wallZ + 0.2);
 
-  return { wall, markers, nightMarkers, finishLine, dayCourseTexture, nightCourseTexture };
+  return { wall, markers, nightMarkers, finishLine };
 }

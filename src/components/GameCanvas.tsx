@@ -3,6 +3,8 @@ import { CharacterKey, CharacterPreviewMap, GameEngine, GameEngineOptions, Theme
 
 interface GameCanvasProps {
   onEngineReady: (engine: GameEngine) => void;
+  onEngineError: () => void;
+  onThemeLoadingChange: (loading: boolean) => void;
   onTimerUpdate: (time: string) => void;
   onStatusUpdate: (status: string) => void;
   onProgressUpdate: (progress: number) => void;
@@ -17,6 +19,8 @@ interface GameCanvasProps {
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
   onEngineReady,
+  onEngineError,
+  onThemeLoadingChange,
   onTimerUpdate,
   onStatusUpdate,
   onProgressUpdate,
@@ -30,6 +34,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const engineReadyRef = useRef(false);
   const themeModeRef = useRef(themeMode);
   const participantsRef = useRef(participants);
   themeModeRef.current = themeMode;
@@ -52,20 +57,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     const engine = new GameEngine(options);
     engineRef.current = engine;
+    onThemeLoadingChange(true);
+    void engine.setThemeMode(themeModeRef.current);
 
-    engine.init().then(() => {
-      if (cancelled) return;
-      // Apply the selected theme after Three.js has created the scene and
-      // course textures. The initial effect can run before init completes.
-      engine.setThemeMode(themeModeRef.current);
-      // Initialization can finish after the user has already filled and
-      // submitted the setup form. Always use the latest participant state.
-      engine.setParticipants(participantsRef.current);
-      onEngineReady(engine);
-    });
+    engine.init()
+      .then(async () => {
+        await engine.setThemeMode(themeModeRef.current);
+        if (cancelled) return;
+        // Initialization can finish after the user has already filled and
+        // submitted the setup form. Always use the latest participant state.
+        engine.setParticipants(participantsRef.current);
+        engineReadyRef.current = true;
+        onThemeLoadingChange(false);
+        onEngineReady(engine);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          onThemeLoadingChange(false);
+          onEngineError();
+        }
+      });
 
     return () => {
       cancelled = true;
+      engineReadyRef.current = false;
       engine.destroy();
     };
   }, []);
@@ -75,9 +90,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       engineRef.current.setParticipants(participants);
       engineRef.current.setSoundEnabled(soundEnabled);
       engineRef.current.setHapticEnabled(hapticEnabled);
-      engineRef.current.setThemeMode(themeMode);
     }
-  }, [participants, soundEnabled, hapticEnabled, themeMode]);
+  }, [participants, soundEnabled, hapticEnabled]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !engineReadyRef.current) return;
+
+    let cancelled = false;
+    onThemeLoadingChange(true);
+    void engine.setThemeMode(themeMode)
+      .then(() => {
+        if (!cancelled) onThemeLoadingChange(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          onThemeLoadingChange(false);
+          onEngineError();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [themeMode]);
 
   return (
     <canvas

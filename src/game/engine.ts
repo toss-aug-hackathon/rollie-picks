@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { gsap } from 'gsap';
-import { createCourse } from './course';
+import { createCourse, loadCourseTexture } from './course';
 import { triggerHaptic } from '../utils/feedback';
 
 const WIDTH = 390;
@@ -110,6 +110,7 @@ export class GameEngine {
   private isInitialized = false;
   private isDestroyed = false;
   private running = false;
+  private paused = false;
   private finished = false;
   private cameraY = 0;
   private raceElapsed = 0;
@@ -125,8 +126,9 @@ export class GameEngine {
   private courseMarkers?: THREE.Object3D;
   private courseNightMarkers?: THREE.Object3D;
   private courseFinishLine?: THREE.Object3D;
-  private dayCourseTexture?: THREE.Texture;
-  private nightCourseTexture?: THREE.Texture;
+  private courseTexture?: THREE.Texture;
+  private loadedCourseTheme?: 'day' | 'night';
+  private themeLoadToken = 0;
 
   private hemisphereLight!: THREE.HemisphereLight;
   private keyLight!: THREE.DirectionalLight;
@@ -187,7 +189,7 @@ export class GameEngine {
       alpha: false
     });
     this.renderer.setSize(width, height, false);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x756477, 2.2);
@@ -221,7 +223,8 @@ export class GameEngine {
     this.racers = ['bear', 'rabbit', 'cat', 'duck'].map((key, index) => this.createRacer(index, key as CharacterKey));
     this.options.onCharacterPreviewsReady?.(this.createCharacterPreviews());
 
-    this.applyTheme(this.themeMode);
+    await this.applyTheme(this.themeMode);
+    if (this.isDestroyed) return;
     this.resize();
     this.resizeObserver = new ResizeObserver(this.resize);
     this.resizeObserver.observe(this.canvas);
@@ -282,13 +285,11 @@ export class GameEngine {
       activeTheme: this.activeTheme,
       screenToWorldY: this.screenToWorldY.bind(this)
     });
-    const { wall, markers, nightMarkers, finishLine, dayCourseTexture, nightCourseTexture } = course as any;
+    const { wall, markers, nightMarkers, finishLine } = course;
     this.courseWall = wall;
     this.courseMarkers = markers;
     this.courseNightMarkers = nightMarkers;
     this.courseFinishLine = finishLine;
-    this.dayCourseTexture = dayCourseTexture;
-    this.nightCourseTexture = nightCourseTexture;
 
     if (this.courseWall) {
       this.scene.add(this.courseWall);
@@ -341,9 +342,9 @@ export class GameEngine {
       doll.add(mesh);
       return mesh;
     };
-    const limb = (radius: number, length: number, position: [number, number, number], rotation: number) => {
+    const limb = (radius: number, length: number, position: [number, number, number], rotation: number, material: THREE.Material = fur) => {
       const geometry = new THREE.CapsuleGeometry(radius, length, 5, 10);
-      const mesh = new THREE.Mesh(geometry, fur);
+      const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(...position);
       mesh.rotation.z = rotation;
       doll.add(mesh);
@@ -378,9 +379,16 @@ export class GameEngine {
       pad.rotation.z = rotation;
       doll.add(pad);
 
-      const center = new THREE.Mesh(this.sphereGeometry, paw);
+      const hasPlushPad = key === 'cat' || key === 'dog' || key === 'hamster' || key === 'panda';
+      const center = new THREE.Mesh(this.sphereGeometry, hasPlushPad ? creamFur : paw);
       center.scale.set(3.8 * size, 3.8 * size, 3.2 * size);
       pad.add(center);
+      if (hasPlushPad) {
+        const inset = new THREE.Mesh(this.sphereGeometry, key === 'panda' ? blackFur : paw);
+        inset.scale.set(2.1 * size, 2.1 * size, 1.2 * size);
+        inset.position.z = 2.8 * size;
+        pad.add(inset);
+      }
       return pad;
     };
 
@@ -393,20 +401,19 @@ export class GameEngine {
       doll.add(rim);
       accents.push(rim);
     }
-    ball([19, 25, 11], [0, -3, 0]);
+    ball([19, 25, 11], [0, -3, 0], key === 'panda' ? blackFur : fur);
     ball([22, 20, 12], [0, 25, 0]);
-    limb(7, 20, [-23, 13, 0], 0.78);
-    limb(7, 20, [23, 13, 0], -0.78);
-    limb(8, 18, [-10, -30, 0], -0.34);
-    limb(8, 18, [10, -30, 0], 0.34);
+    const limbFur = key === 'panda' ? blackFur : fur;
+    limb(7, 20, [-23, 13, 0], 0.78, limbFur);
+    limb(7, 20, [23, 13, 0], -0.78, limbFur);
+    limb(8, 18, [-10, -30, 0], -0.34, limbFur);
+    limb(8, 18, [10, -30, 0], 0.34, limbFur);
 
     if (key === 'turtle') {
-      ball([14, 18, 2], [0, -4, 10], paw);
-      const bellyRim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 8, 24), dark);
-      bellyRim.scale.set(13, 17, 2);
-      bellyRim.position.set(0, -4, 12.2);
-      doll.add(bellyRim);
-      accents.push(bellyRim);
+      const shell = plushMaterial(0x557a43);
+      ball([17, 21, 2.4], [0, -3, 9.8], shell);
+      ball([10, 13, 1.8], [0, -3, 12], paw);
+      ball([7, 6, 2], [0, 21.5, 10.5], creamFur);
     }
 
     if (key === 'bear') {
@@ -415,13 +422,19 @@ export class GameEngine {
     } else if (key === 'rabbit') {
       accents.push(limb(4.5, 19, [-7, 45, 0], -0.08), limb(4.5, 19, [7, 45, 0], 0.08));
     } else if (key === 'cat') {
-      limb(5, 7, [-12, 39, 0], -0.25);
-      limb(5, 7, [12, 39, 0], 0.25);
+      const leftEar = new THREE.Mesh(new THREE.ConeGeometry(7, 14, 3), fur);
+      const rightEar = leftEar.clone();
+      leftEar.position.set(-12, 42, 0);
+      rightEar.position.set(12, 42, 0);
+      leftEar.rotation.z = 0.16;
+      rightEar.rotation.z = -0.16;
+      doll.add(leftEar, rightEar);
+      ball([7.5, 6, 2.1], [-5.5, 21.5, 10.5], creamFur);
+      ball([7.5, 6, 2.1], [5.5, 21.5, 10.5], creamFur);
     } else if (key === 'dog') {
       accentLimb(5.5, 11, [-17, 38, -1], 0.48, brownFur);
       accentLimb(5.5, 11, [17, 38, -1], -0.48, brownFur);
       ball([9, 6.5, 2.2], [0, 21.5, 10.5], creamFur);
-      ball([7, 9, 1.5], [-10, 30, 10.3], brownFur);
     } else if (key === 'fox') {
       accentLimb(5.5, 12, [-12, 42, 0], -0.22, fur);
       accentLimb(5.5, 12, [12, 42, 0], 0.22, fur);
@@ -435,15 +448,16 @@ export class GameEngine {
       const rightPatch = ball([6.3, 8, 1.2], [7, 29, 10.1], blackFur);
       leftPatch.rotation.z = -0.35;
       rightPatch.rotation.z = 0.35;
-      ball([10, 13, 2], [0, -4, 10], blackFur);
+      ball([15, 12, 2], [0, -4, 10], whiteFur);
+      ball([8, 6.5, 2.1], [0, 21.5, 10.5], whiteFur);
     } else if (key === 'pig') {
       ball([7, 7, 5], [-14, 42, 0]);
       ball([7, 7, 5], [14, 42, 0]);
       ball([4.3, 4.3, 2], [-14, 42, 5], paw);
       ball([4.3, 4.3, 2], [14, 42, 5], paw);
     } else if (key === 'hamster') {
-      ball([7, 7, 5], [-14, 41, 0], brownFur);
-      ball([7, 7, 5], [14, 41, 0], brownFur);
+      ball([7, 7, 5], [-14, 41, 0]);
+      ball([7, 7, 5], [14, 41, 0]);
       ball([4, 4, 2], [-14, 41, 5], paw);
       ball([4, 4, 2], [14, 41, 5], paw);
       ball([8, 7, 2], [-10, 21, 10.4], creamFur);
@@ -452,8 +466,8 @@ export class GameEngine {
     }
 
     const normalEyes: THREE.Mesh[] = [
-      ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
-      ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
+      ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], key === 'panda' ? whiteFur : dark),
+      ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], key === 'panda' ? whiteFur : dark)
     ];
     if (key === 'cat') {
       const pupil = new THREE.MeshBasicMaterial({ color: 0x28242c });
@@ -466,7 +480,16 @@ export class GameEngine {
       ball([1.2, 1.7, 0.7], [-2.5, 21.5, 13], dark);
       ball([1.2, 1.7, 0.7], [2.5, 21.5, 13], dark);
     } else {
-      ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' || key === 'hamster' ? pink : dark);
+      ball([2.7, 2.2, 1.6], [0, 22.5, 12], key === 'rabbit' || key === 'hamster' ? pink : key === 'cat' ? brownFur : dark);
+    }
+    if (key === 'rabbit') {
+      ball([3.2, 2.2, 0.75], [0, 19.2, 12.4], dark);
+      ball([1.35, 2.2, 0.65], [0, 17.6, 13.1], pink);
+    }
+    const hasModalTongue = key === 'hamster' || key === 'cat' || key === 'panda' || key === 'dog';
+    if (hasModalTongue) {
+      ball([3.2, 2.2, 0.75], [0, 19.2, 12.4], dark);
+      ball([1.45, 2.4, 0.65], [0, 17.5, 13.1], pink);
     }
     pawPad([-23, 13, 0], 0.78, 1, 16, 0.9);
     pawPad([23, 13, 0], -0.78, 1, 16, 0.9);
@@ -476,6 +499,8 @@ export class GameEngine {
     if (key === 'fox') {
       accentLimb(7, 19, [22, -13, -8], -0.68, fur);
       ball([7, 8, 4], [33, -23, -7], whiteFur);
+    } else if (key === 'cat') {
+      accentLimb(4, 15, [18, -10, -8], -0.55, fur);
     } else if (key === 'dog') {
       accentLimb(4.5, 10, [18, -13, -8], -0.72, brownFur);
     } else if (key === 'pig') {
@@ -494,7 +519,7 @@ export class GameEngine {
       return face;
     };
     const stroke = (face: THREE.Group, x: number, y: number, rotation: number, length = 4) => {
-      const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), dark);
+      const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), key === 'panda' ? whiteFur : dark);
       line.position.set(x, y, 12.5);
       line.rotation.z = rotation;
       face.add(line);
@@ -508,24 +533,26 @@ export class GameEngine {
     const readyFace = faceGroup();
     stroke(readyFace, -6.2, 33, -1.3, 4.5);
     stroke(readyFace, 6.2, 33, 1.3, 4.5);
-    roundMouth(readyFace);
+    if (key !== 'rabbit' && !hasModalTongue) roundMouth(readyFace);
 
     const hitFace = faceGroup();
     stroke(hitFace, -6.2, 29.8, 0.75);
     stroke(hitFace, -6.2, 27.2, -0.75);
     stroke(hitFace, 6.2, 29.8, -0.75);
     stroke(hitFace, 6.2, 27.2, 0.75);
-    roundMouth(hitFace);
+    if (key !== 'rabbit' && !hasModalTongue) roundMouth(hitFace);
 
     const resultFace = faceGroup();
     stroke(resultFace, -7.5, 28.5, -0.75);
     stroke(resultFace, -4.9, 28.5, 0.75);
     stroke(resultFace, 4.9, 28.5, -0.75);
     stroke(resultFace, 7.5, 28.5, 0.75);
-    const smile = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.7, 6, 18, Math.PI), dark);
-    smile.position.set(0, 22, 12.5);
-    smile.rotation.z = Math.PI;
-    resultFace.add(smile);
+    if (key !== 'rabbit' && !hasModalTongue) {
+      const smile = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.7, 6, 18, Math.PI), dark);
+      smile.position.set(0, 22, 12.5);
+      smile.rotation.z = Math.PI;
+      resultFace.add(smile);
+    }
 
     accents.forEach((part) => {
       part.userData.baseRotationZ = part.rotation.z;
@@ -1147,14 +1174,15 @@ export class GameEngine {
 
   private syncRace(dt: number) {
     let lowest = Infinity;
-    if (this.running) this.raceElapsed = (performance.now() - this.raceStartedAt) / 1000;
+    const raceActive = this.running && !this.paused;
+    if (raceActive) this.raceElapsed = (performance.now() - this.raceStartedAt) / 1000;
     const active = this.racers.filter((racer) => racer.active);
     const boostedRacer = active[this.catchUpIndex(active.map((racer) => racer.body.translation().y))];
     this.racers.forEach((racer) => {
       if (!racer.active) return;
       const position = racer.body.translation();
       const rotation = racer.body.rotation();
-      if (this.running && racer.expressionUntil && this.raceElapsed >= racer.expressionUntil) {
+      if (raceActive && racer.expressionUntil && this.raceElapsed >= racer.expressionUntil) {
         racer.expressionUntil = 0;
         this.setExpression(racer.visual);
       }
@@ -1169,7 +1197,7 @@ export class GameEngine {
       const squeeze = sticking ? Math.sin(Math.PI * (1 + racer.gripElapsed / racer.stickDuration)) * 0.08 : 0;
       racer.visual.scale.set(1 + squeeze * 0.45, 1 - squeeze * 0.35, 1 - squeeze);
       const { doll, accents, key } = racer.visual.userData;
-      const characterMotion = this.running ? this.raceElapsed : 0;
+      const characterMotion = raceActive ? this.raceElapsed : 0;
       doll.position.set(0, 0, 0);
       doll.rotation.set(0, 0, 0);
       doll.scale.set(1, 1, 1);
@@ -1199,7 +1227,7 @@ export class GameEngine {
       } else if (key === 'hamster') {
         doll.position.y = Math.abs(Math.sin(characterMotion * 5.5)) * 1.2;
       }
-      if (this.running) {
+      if (raceActive) {
         const progressY = this.anchorProgressY(racer);
         if (progressY < racer.lastProgressY - 18) {
           racer.lastProgressY = progressY;
@@ -1247,7 +1275,7 @@ export class GameEngine {
       }
     });
 
-    if (this.running) {
+    if (raceActive) {
       const target = Math.min(0, lowest + 220);
       this.cameraY += (target - this.cameraY) * Math.min(1, dt * 3.2);
       this.camera.position.y = this.cameraY;
@@ -1267,11 +1295,22 @@ export class GameEngine {
     return this.isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
   }
 
-  private prepareAudio() {
-    if (!this.soundEnabled || document.hidden) return;
-    this.audioContext ||= new AudioContext();
-    if (this.audioContext.state === 'suspended') {
-      void this.audioContext.resume().catch(() => {});
+  private async prepareAudio() {
+    if (!this.soundEnabled || document.hidden) return false;
+    try {
+      this.audioContext ||= new AudioContext();
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      return this.audioContext.state === 'running';
+    } catch {
+      return false;
+    }
+  }
+
+  private async waitWhilePaused(token: number) {
+    while (this.paused && token === this.countdownToken && !this.isDestroyed) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
   }
 
@@ -1295,8 +1334,7 @@ export class GameEngine {
 
   private tone(frequency = 440, duration = 0.08) {
     if (!this.soundEnabled) return;
-    this.prepareAudio();
-    if (!this.audioContext) return;
+    if (!this.audioContext || this.audioContext.state !== 'running') return;
     const oscillator = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
     oscillator.frequency.value = frequency;
@@ -1307,7 +1345,7 @@ export class GameEngine {
     oscillator.stop(this.audioContext.currentTime + duration);
   }
 
-  public applyTheme(mode: ThemeMode) {
+  public async applyTheme(mode: ThemeMode) {
     const previousTheme = this.activeTheme;
     this.themeMode = mode;
     this.activeTheme = this.themeForMode(mode);
@@ -1325,13 +1363,8 @@ export class GameEngine {
     this.hemisphereLight.intensity = night ? 1.35 : 2.2;
     this.keyLight.intensity = night ? 1.45 : 2.2;
 
-    if (this.courseWall) {
-      const mat = this.courseWall.material as THREE.MeshBasicMaterial;
-      mat.map = (night ? this.nightCourseTexture : this.dayCourseTexture) || null;
-      mat.needsUpdate = true;
-      if (this.courseMarkers) this.courseMarkers.visible = !night;
-      if (this.courseNightMarkers) this.courseNightMarkers.visible = night;
-    }
+    if (this.courseMarkers) this.courseMarkers.visible = !night;
+    if (this.courseNightMarkers) this.courseNightMarkers.visible = night;
 
     if (this.mole) {
       const material = this.mole.head.material as THREE.MeshBasicMaterial;
@@ -1342,6 +1375,28 @@ export class GameEngine {
       if (previousTheme !== this.activeTheme) this.resetMole();
       this.mole.dirt.visible = !night && this.mole.group.visible && this.mole.phase === 'warning';
     }
+
+    if (!this.courseWall) return;
+    if (this.loadedCourseTheme === this.activeTheme) {
+      this.themeLoadToken += 1;
+      return;
+    }
+
+    const requestedTheme = this.activeTheme;
+    const loadToken = ++this.themeLoadToken;
+    const texture = await loadCourseTexture(requestedTheme);
+    if (this.isDestroyed || loadToken !== this.themeLoadToken) {
+      texture.dispose();
+      return;
+    }
+
+    const previousTexture = this.courseTexture;
+    this.courseTexture = texture;
+    this.loadedCourseTheme = requestedTheme;
+    const material = this.courseWall.material as THREE.MeshBasicMaterial;
+    material.map = texture;
+    material.needsUpdate = true;
+    previousTexture?.dispose();
   }
 
   public setSoundEnabled(enabled: boolean) {
@@ -1363,14 +1418,15 @@ export class GameEngine {
   }
 
   public setThemeMode(mode: ThemeMode) {
-    this.applyTheme(mode);
+    return this.applyTheme(mode);
   }
 
   public async startRace() {
     if (!this.isInitialized || this.running) return;
+    this.paused = false;
     // Run synchronously from the start-button gesture so iOS WebView allows
     // the later countdown and collision sounds to use this audio context.
-    this.prepareAudio();
+    await this.prepareAudio();
     this.racers.forEach((racer) => {
       racer.placementTween?.kill();
       racer.placementTween = null;
@@ -1379,12 +1435,14 @@ export class GameEngine {
     this.finished = false;
     this.options.onCountdownUpdate('3', true);
     for (let count = 3; count > 0; count -= 1) {
+      await this.waitWhilePaused(token);
       if (token !== this.countdownToken) return;
       this.options.onCountdownUpdate(String(count), true);
       this.tone(360 + (3 - count) * 80, 0.16);
       triggerHaptic(this.hapticEnabled, 'tickMedium', 35);
       await new Promise((resolve) => window.setTimeout(resolve, 700));
     }
+    await this.waitWhilePaused(token);
     if (token !== this.countdownToken) return;
     this.options.onCountdownUpdate('출발!', true);
     this.tone(820, 0.3);
@@ -1399,14 +1457,30 @@ export class GameEngine {
     this.options.onCountdownUpdate('출발!', false);
   }
 
+  public pauseRace() {
+    if (this.finished) return;
+    this.paused = true;
+    if (this.audioContext?.state === 'running') {
+      void this.audioContext.suspend().catch(() => {});
+    }
+  }
+
+  public resumeRace() {
+    if (!this.paused) return;
+    if (this.running) this.raceStartedAt = performance.now() - this.raceElapsed * 1000;
+    this.paused = false;
+    void this.prepareAudio();
+  }
+
   public resetRace() {
     this.countdownToken += 1;
     if (this.finishTimeoutId !== null) {
       window.clearTimeout(this.finishTimeoutId);
       this.finishTimeoutId = null;
     }
-    this.applyTheme(this.themeMode);
+    void this.applyTheme(this.themeMode);
     this.running = false;
+    this.paused = false;
     this.finished = false;
     this.raceElapsed = 0;
     this.draggedRacer = null;
@@ -1457,7 +1531,7 @@ export class GameEngine {
       const dt = Math.min((now - previous) / 1000, 0.05);
       previous = now;
 
-      if (this.running) {
+      if (this.running && !this.paused) {
         accumulator += dt;
         while (accumulator >= 1 / 60) {
           this.updateMole(this.world.timestep);
@@ -1501,7 +1575,14 @@ export class GameEngine {
                 racer.knockbackUntil = this.raceElapsed + 0.65;
                 racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
                 this.mole.hit = 0.18;
-                gsap.fromTo(this.canvas, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
+                gsap.killTweensOf(this.camera.position);
+                gsap.fromTo(this.camera.position, { x: -direction * 9 }, {
+                  x: 0,
+                  duration: 0.07,
+                  repeat: 3,
+                  yoyo: true,
+                  onComplete: () => { this.camera.position.x = 0; }
+                });
                 this.tone(120, 0.16);
                 triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
               } else {
@@ -1539,6 +1620,9 @@ export class GameEngine {
 
   public destroy() {
     this.isDestroyed = true;
+    this.themeLoadToken += 1;
+    this.courseTexture?.dispose();
+    this.courseTexture = undefined;
     if (this.finishTimeoutId !== null) {
       window.clearTimeout(this.finishTimeoutId);
       this.finishTimeoutId = null;

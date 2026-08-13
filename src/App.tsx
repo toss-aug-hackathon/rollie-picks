@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getAnonymousKey, Storage } from '@apps-in-toss/web-framework';
+import { getAnonymousKey, setDeviceOrientation, setScreenAwakeMode, Storage } from '@apps-in-toss/web-framework';
 import { GameCanvas } from './components/GameCanvas';
 import { SetupScreen, ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
@@ -40,23 +40,8 @@ const restoreParticipants = (value: unknown): ParticipantState[] => {
 };
 
 export const App: React.FC = () => {
-  useEffect(() => {
-    const updateAppHeight = () => {
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty('--viewport-height', `${Math.round(viewportHeight)}px`);
-    };
-
-    updateAppHeight();
-    window.addEventListener('resize', updateAppHeight);
-    window.visualViewport?.addEventListener('resize', updateAppHeight);
-    return () => {
-      window.removeEventListener('resize', updateAppHeight);
-      window.visualViewport?.removeEventListener('resize', updateAppHeight);
-      document.documentElement.style.removeProperty('--viewport-height');
-    };
-  }, []);
-
   const [activeScreen, setActiveScreen] = useState<'setup' | 'playing' | 'paused' | 'result'>('setup');
+  const [engineError, setEngineError] = useState(false);
   
   const [question, setQuestion] = useState('');
   const [participants, setParticipants] = useState<ParticipantState[]>(DEFAULT_PARTICIPANTS);
@@ -64,7 +49,20 @@ export const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticEnabled, setHapticEnabled] = useState(true);
   const [themeMode, setThemeMode] = useState<ThemeMode>('day');
+  const [mapReady, setMapReady] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
+
+  useEffect(() => {
+    void setDeviceOrientation({ type: 'portrait' }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const enabled = activeScreen === 'playing';
+    void setScreenAwakeMode({ enabled }).catch(() => {});
+    return () => {
+      if (enabled) void setScreenAwakeMode({ enabled: false }).catch(() => {});
+    };
+  }, [activeScreen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +137,8 @@ export const App: React.FC = () => {
   const pendingStartRef = useRef(false);
 
   const handleEngineReady = (engine: GameEngine) => {
+    setEngineError(false);
+    setMapReady(true);
     engineRef.current = engine;
     if (pendingStartRef.current) {
       pendingStartRef.current = false;
@@ -148,6 +148,7 @@ export const App: React.FC = () => {
   };
 
   const handleSubmitSetup = () => {
+    if (!mapReady) return;
     if (engineRef.current) {
       engineRef.current.setParticipants(participants);
       engineRef.current.resetRace();
@@ -168,10 +169,12 @@ export const App: React.FC = () => {
   const signalLightsOn = countdownStr === '3' ? 1 : countdownStr === '2' ? 2 : countdownStr === '1' ? 3 : 0;
 
   const handleOpenMenu = () => {
+    engineRef.current?.pauseRace();
     setActiveScreen('paused');
   };
 
   const handleResumeMenu = () => {
+    engineRef.current?.resumeRace();
     setActiveScreen('playing');
   };
 
@@ -234,6 +237,11 @@ export const App: React.FC = () => {
 
       <GameCanvas
         onEngineReady={handleEngineReady}
+        onEngineError={() => {
+          setMapReady(false);
+          setEngineError(true);
+        }}
+        onThemeLoadingChange={(loading) => setMapReady(!loading)}
         onTimerUpdate={setTimerStr}
         onStatusUpdate={setStatusStr}
         onProgressUpdate={setProgress}
@@ -248,6 +256,13 @@ export const App: React.FC = () => {
         hapticEnabled={hapticEnabled}
         themeMode={themeMode}
       />
+
+      {engineError && (
+        <div id="error" className="is-visible" role="alert">
+          <strong>게임을 불러오지 못했어요.</strong>
+          <button type="button" className="primary" onClick={() => window.location.reload()}>다시 시도</button>
+        </div>
+      )}
 
       {countdownVisible && (
         <div id="race-start" className={countdownStr === '출발!' ? 'is-go' : ''} aria-live="assertive">
@@ -281,7 +296,11 @@ export const App: React.FC = () => {
           hapticEnabled={hapticEnabled}
           setHapticEnabled={setHapticEnabled}
           themeMode={themeMode}
-          setThemeMode={setThemeMode}
+          setThemeMode={(mode) => {
+            setMapReady(false);
+            setThemeMode(mode);
+          }}
+          mapReady={mapReady}
           onSubmit={handleSubmitSetup}
           characterPreviews={characterPreviews}
         />
