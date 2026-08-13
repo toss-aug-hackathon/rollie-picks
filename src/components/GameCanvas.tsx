@@ -37,6 +37,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    let cancelled = false;
 
     const options: GameEngineOptions = {
       canvas: canvasRef.current,
@@ -53,6 +54,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     engineRef.current = engine;
 
     engine.init().then(() => {
+      if (cancelled) return;
       // Apply the selected theme after Three.js has created the scene and
       // course textures. The initial effect can run before init completes.
       engine.setThemeMode(themeModeRef.current);
@@ -63,6 +65,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     });
 
     return () => {
+      cancelled = true;
       engine.destroy();
     };
   }, []);
