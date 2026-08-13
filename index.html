@@ -67,8 +67,9 @@
     #result .card { max-height: calc(100dvh - 34px); overflow-y: auto; }
     .card > * { position: relative; z-index: 1; }
     .story-marquee { margin: -26px -22px 18px; overflow: hidden; border-bottom: 3px solid var(--ink); color: #fff; background: var(--carrot); font-size: 12px; font-weight: 800; letter-spacing: .08em; }
-    .story-marquee-track { display: flex; width: max-content; padding: 8px 0; }
+    .story-marquee-track { display: flex; width: max-content; padding: 8px 0; animation: story-marquee-scroll 12s linear infinite; will-change: transform; }
     .story-marquee-track span { width: max-content; padding-right: 24px; }
+    @keyframes story-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
     .hero-title, .card h2, .card > p, #result-speech, #result-copy, button { word-break: keep-all; overflow-wrap: break-word; }
     #result-title { white-space: pre-line; }
     .card h2 { max-width: 19rem; margin: 0 0 8px; font-size: 26px; font-weight: 900; line-height: 1.1; letter-spacing: -.04em; }
@@ -86,6 +87,9 @@
     #result-list li:nth-child(2) { background: #fde68a; }
     #result-list li:nth-child(3) { background: #bae6fd; }
     #result-list li:nth-child(4) { background: #c7d2fe; }
+    .rank-character { display: grid; width: 54px; height: 54px; place-items: center; overflow: hidden; }
+    .rank-character img { display: block; width: 54px; height: 54px; object-fit: contain; filter: drop-shadow(1px 2px 0 rgb(0 0 0 / 18%)); }
+    .rank-character > span { font-size: 34px; line-height: 1; }
     .rank-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 42px; padding: 4px 7px; border: 2px solid currentColor; border-radius: 999px; font-weight: 950; white-space: nowrap; }
     .rank-name { min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
     .rank-character { white-space: nowrap; font-size: .9em; }
