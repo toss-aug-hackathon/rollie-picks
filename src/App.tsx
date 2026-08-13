@@ -9,12 +9,12 @@ import { GameEngine, CharacterKey, ThemeMode } from './game/engine';
 export const App: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<'setup' | 'playing' | 'paused' | 'result'>('setup');
   
-  const [question, setQuestion] = useState('오늘 저녁 뭐 먹지?');
+  const [question, setQuestion] = useState('');
   const [participants, setParticipants] = useState<ParticipantState[]>([
-    { name: '짜장면', characterKey: 'bear' },
-    { name: '짬뽕', characterKey: 'rabbit' },
-    { name: '마라탕', characterKey: 'cat' },
-    { name: '초밥', characterKey: 'duck' }
+    { name: '', characterKey: 'bear' },
+    { name: '', characterKey: 'rabbit' },
+    { name: '', characterKey: 'cat' },
+    { name: '', characterKey: 'duck' }
   ]);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
