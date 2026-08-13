@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { gsap } from 'gsap';
-import { createCourse } from './course.js';
+import { createCourse } from './course';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -36,12 +36,49 @@ const PLACEMENT_PARTS = [
   { x: -10, y: -32, rx: 10, ry: 18 },
   { x: 10, y: -32, rx: 10, ry: 18 }
 ];
+type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle';
+
+interface Racer {
+  index: number;
+  body: RAPIER.RigidBody;
+  visual: THREE.Group;
+  characterKey: CharacterKey;
+  label: HTMLElement;
+  anchors: any[];
+  gripElapsed: number;
+  flipStart: any;
+  flipAxisX: number;
+  isFlipping: boolean;
+  knockbackUntil: number;
+  expressionUntil?: number;
+  stickDuration: number;
+  lastProgressY: number;
+  stalledFor: number;
+  placed: boolean;
+  active: boolean;
+}
+
+interface MoleObj {
+  group: THREE.Group;
+  head: THREE.Mesh<any, any>;
+  dirt: THREE.Mesh;
+  body: RAPIER.RigidBody;
+  collider: RAPIER.Collider;
+  moleTexture: THREE.Texture;
+  ghostTexture: THREE.Texture;
+  hit: number;
+  phase: string;
+  timer: number;
+  direction?: number;
+  flightY?: number;
+}
+
 const DEFAULT_NAMES = ['곰', '토끼', '고양이', '오리'];
-const KEYS = ['bear', 'rabbit', 'cat', 'duck'];
-const CHARACTER_KEYS = [...KEYS, 'turtle'];
-const CHARACTER_NAMES = { bear: '곰', rabbit: '토끼', cat: '고양이', duck: '오리', turtle: '거북이' };
-const COLORS = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, turtle: 0x8eb879 };
-const CHARACTER_TONES = { bear: 260, rabbit: 760, cat: 520, duck: 640, turtle: 360 };
+const KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck'];
+const CHARACTER_KEYS: CharacterKey[] = [...KEYS, 'turtle'];
+const CHARACTER_NAMES: Record<CharacterKey, string> = { bear: '곰', rabbit: '토끼', cat: '고양이', duck: '오리', turtle: '거북이' };
+const COLORS: Record<CharacterKey, number> = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, turtle: 0x8eb879 };
+const CHARACTER_TONES: Record<CharacterKey, number> = { bear: 260, rabbit: 760, cat: 520, duck: 640, turtle: 360 };
 const PAD_POINTS = [
   new THREE.Vector3(-27, 27, 0),
   new THREE.Vector3(27, 27, 0),
@@ -50,43 +87,43 @@ const PAD_POINTS = [
 ];
 const START_PADS = [[0, 1, 2, 3], [1, 0, 3, 2], [0, 1, 2, 3], [1, 0, 3, 2]];
 
-const game = document.querySelector('#game');
-const guide = document.querySelector('#guide');
-const raceQuestion = document.querySelector('#race-question');
-const status = document.querySelector('#status');
-const raceTimer = document.querySelector('#race-timer');
-const raceStart = document.querySelector('#race-start');
-const startCount = document.querySelector('#start-count');
-const startCaption = document.querySelector('#start-caption');
-const signalLights = [...document.querySelectorAll('.signal-lights i')];
-const errorBox = document.querySelector('#error');
-const setup = document.querySelector('#setup');
-const setupForm = document.querySelector('#setup-form');
-const setupSubmit = document.querySelector('#setup-submit');
-const setupDescription = document.querySelector('#setup-description');
-const decisionQuestion = document.querySelector('#decision-question');
-const themeSelect = document.querySelector('#theme-mode');
-const nameInputs = [...setupForm.elements.namedItem('name')];
-const characterSelects = [...setupForm.elements.namedItem('character')];
-const participants = [...document.querySelectorAll('.participant')];
-const characterPickers = [...document.querySelectorAll('.mini-character-picker')];
-const characterPreviewImages = [...document.querySelectorAll('.mini-character-preview img')];
-const characterPreviewLabels = [...document.querySelectorAll('.mini-character-preview span')];
-const characterSteps = [...document.querySelectorAll('.character-step')];
-const result = document.querySelector('#result');
-const resultTitle = document.querySelector('#result-title');
-const resultCopy = document.querySelector('#result-copy');
-const resultList = document.querySelector('#result-list');
-const resultCharacterImage = document.querySelector('#result-character-image');
-const resultSpeech = document.querySelector('#result-speech');
-const commentPrev = document.querySelector('#comment-prev');
-const commentNext = document.querySelector('#comment-next');
-let world;
-let eventQueue;
-let racers = [];
-let mountains = [];
-const colliderRacers = new Map();
-let mole;
+const game = document.querySelector<HTMLElement>('#game')!;
+const guide = document.querySelector<HTMLButtonElement>('#guide');
+const raceQuestion = document.querySelector<HTMLElement>('#race-question');
+const status = document.querySelector<HTMLElement>('#status');
+const raceTimer = document.querySelector<HTMLElement>('#race-timer');
+const raceStart = document.querySelector<HTMLElement>('#race-start');
+const startCount = document.querySelector<HTMLElement>('#start-count');
+const startCaption = document.querySelector<HTMLElement>('#start-caption');
+const signalLights = Array.from(document.querySelectorAll<HTMLElement>('.signal-lights i'));
+const errorBox = document.querySelector<HTMLElement>('#error');
+const setup = document.querySelector<HTMLElement>('#setup');
+const setupForm = document.querySelector<HTMLFormElement>('#setup-form');
+const setupSubmit = document.querySelector<HTMLButtonElement>('#setup-submit');
+const setupDescription = document.querySelector<HTMLElement>('#setup-description');
+const decisionQuestion = document.querySelector<HTMLInputElement>('#decision-question');
+const themeSelect = document.querySelector<HTMLSelectElement>('#theme-mode');
+const nameInputs = setupForm ? Array.from(setupForm.querySelectorAll<HTMLInputElement>('input[name="name"]')) : [];
+const characterSelects = setupForm ? Array.from(setupForm.querySelectorAll<HTMLSelectElement>('select[name="character"]')) : [];
+const participants = Array.from(document.querySelectorAll<HTMLElement>('.participant'));
+const characterPickers = Array.from(document.querySelectorAll<HTMLElement>('.mini-character-picker'));
+const characterPreviewImages = Array.from(document.querySelectorAll<HTMLImageElement>('.mini-character-preview img'));
+const characterPreviewLabels = Array.from(document.querySelectorAll<HTMLElement>('.mini-character-preview span'));
+const characterSteps = Array.from(document.querySelectorAll<HTMLButtonElement>('.character-step'));
+const result = document.querySelector<HTMLElement>('#result');
+const resultTitle = document.querySelector<HTMLElement>('#result-title');
+const resultCopy = document.querySelector<HTMLElement>('#result-copy');
+const resultList = document.querySelector<HTMLElement>('#result-list');
+const resultCharacterImage = document.querySelector<HTMLImageElement>('#result-character-image');
+const resultSpeech = document.querySelector<HTMLElement>('#result-speech');
+const commentPrev = document.querySelector<HTMLButtonElement>('#comment-prev');
+const commentNext = document.querySelector<HTMLButtonElement>('#comment-next');
+let world: RAPIER.World;
+let eventQueue: RAPIER.EventQueue;
+let racers: Racer[] = [];
+let mountains: THREE.Object3D[] = [];
+const colliderRacers = new Map<number, number>();
+let mole: MoleObj;
 let running = false;
 let finished = false;
 let cameraY = 0;
@@ -94,21 +131,21 @@ let raceElapsed = 0;
 let raceStartedAt = 0;
 let soundEnabled = true;
 let hapticEnabled = true;
-let audioContext;
-let resultComments = [];
+let audioContext: AudioContext | undefined;
+let resultComments: string[] = [];
 let commentIndex = 0;
-let characterPreviews = {};
+let characterPreviews: Record<string, { ready: string; result: string }> = {};
 let motionListening = false;
-let lastMotionMagnitude;
+let lastMotionMagnitude: number | undefined;
 let shakeBoostUntil = 0;
 let lastShakeAt = 0;
 let themeMode = 'auto';
 let activeTheme = themeForMode(themeMode);
-let courseWall;
-let courseMarkers;
-let courseNightMarkers;
-let dayCourseTexture;
-let nightCourseTexture;
+let courseWall: THREE.Mesh<any, any> | undefined;
+let courseMarkers: THREE.Object3D | undefined;
+let courseNightMarkers: THREE.Object3D | undefined;
+let dayCourseTexture: THREE.Texture | undefined;
+let nightCourseTexture: THREE.Texture | undefined;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color();
@@ -125,16 +162,16 @@ const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
 keyLight.position.set(-160, 250, 300);
 scene.add(keyLight);
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const motionScale = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
 
-function themeForMode(mode, hour = new Date().getHours()) {
+function themeForMode(mode: string, hour = new Date().getHours()) {
   return mode === 'auto' ? (hour >= NIGHT_START || hour < NIGHT_END ? 'night' : 'day') : mode;
 }
 
 console.assert(themeForMode('auto', 22) === 'night' && themeForMode('auto', 12) === 'day', 'auto theme failed');
 
-function applyTheme(mode) {
+function applyTheme(mode: string) {
   const nextTheme = themeForMode(mode);
   const themeChanged = activeTheme !== nextTheme;
 
@@ -144,31 +181,22 @@ function applyTheme(mode) {
   const night = activeTheme === 'night';
 
   document.documentElement.dataset.theme = activeTheme;
-  scene.background.set(night ? 0x101936 : 0x8de8ee);
+  (scene.background as THREE.Color).set(night ? 0x101936 : 0x8de8ee);
 
   hemisphereLight.intensity = night ? 1.35 : 2.2;
   keyLight.intensity = night ? 1.45 : 2.2;
 
   if (courseWall) {
-    courseWall.material.map = night
-      ? nightCourseTexture
-      : dayCourseTexture;
-
+    courseWall.material.map = (night ? nightCourseTexture : dayCourseTexture) || null;
     courseWall.material.needsUpdate = true;
-
-    courseMarkers.visible = !night;
-    courseNightMarkers.visible = night;
+    if (courseMarkers) courseMarkers.visible = !night;
+    if (courseNightMarkers) courseNightMarkers.visible = night;
   }
 
   if (mole) {
-    mole.head.material.map = night
-      ? mole.ghostTexture
-      : mole.moleTexture;
-
+    mole.head.material.map = night ? mole.ghostTexture : mole.moleTexture;
     mole.head.material.needsUpdate = true;
 
-    // 레이스 도중 낮 ↔ 밤이 변경되어도
-    // 두더지/유령의 이전 상태가 남지 않도록 초기화
     if (themeChanged) {
       resetMole();
     }
@@ -176,13 +204,14 @@ function applyTheme(mode) {
     mole.dirt.visible = !night && mole.group.visible;
   }
 }
-function motionMagnitude(acceleration) {
+
+function motionMagnitude(acceleration: any) {
   return acceleration ? Math.hypot(acceleration.x || 0, acceleration.y || 0, acceleration.z || 0) : 0;
 }
 
 console.assert(motionMagnitude({ x: 3, y: 4, z: 0 }) === 5, 'motion magnitude failed');
 
-function handleDeviceMotion(event) {
+function handleDeviceMotion(event: DeviceMotionEvent) {
   if (!running) return;
   const acceleration = event.acceleration;
   const magnitude = motionMagnitude(acceleration || event.accelerationIncludingGravity);
@@ -198,22 +227,23 @@ function handleDeviceMotion(event) {
 async function enableMotionSensor() {
   if (motionListening || typeof DeviceMotionEvent === 'undefined') return;
   try {
-    if (typeof DeviceMotionEvent.requestPermission === 'function'
-      && await DeviceMotionEvent.requestPermission() !== 'granted') return;
-    addEventListener('devicemotion', handleDeviceMotion);
+    const DeviceMotionEventClass = DeviceMotionEvent as any;
+    if (typeof DeviceMotionEventClass.requestPermission === 'function'
+      && await DeviceMotionEventClass.requestPermission() !== 'granted') return;
+    addEventListener('devicemotion', handleDeviceMotion as any);
     motionListening = true;
   } catch (error) {
     console.warn('기기 흔들기 감지를 사용할 수 없어요.', error);
   }
 }
 
-function showOverlay(overlay) {
+function showOverlay(overlay: HTMLElement) {
   overlay.hidden = false;
   gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.35 * motionScale, ease: 'power2.out' });
   gsap.fromTo(overlay.querySelector('.card'), { y: 42, scale: 0.96, rotation: -1.5 }, { y: 0, scale: 1, rotation: 0, duration: 0.65 * motionScale, ease: 'power3.out' });
 }
 
-function hideOverlay(overlay) {
+function hideOverlay(overlay: HTMLElement) {
   gsap.to(overlay, {
     opacity: 0,
     duration: 0.3 * motionScale,
@@ -228,11 +258,11 @@ function hideOverlay(overlay) {
 function showComment(offset = 0) {
   if (!resultComments.length) return;
   commentIndex = (commentIndex + offset + resultComments.length) % resultComments.length;
-  resultCopy.textContent = resultComments[commentIndex];
-  gsap.fromTo(resultCopy, { x: offset * 10, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 * motionScale });
+  if (resultCopy) resultCopy.textContent = resultComments[commentIndex];
+  if (resultCopy) gsap.fromTo(resultCopy, { x: offset * 10, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 * motionScale });
 }
 
-function buzz(pattern) {
+function buzz(pattern: VibratePattern) {
   if (hapticEnabled) navigator.vibrate?.(pattern);
 }
 
@@ -249,11 +279,11 @@ function tone(frequency = 440, duration = 0.08) {
   oscillator.stop(audioContext.currentTime + duration);
 }
 
-function screenToWorldY(screenY) {
+function screenToWorldY(screenY: number) {
   return HEIGHT / 2 - screenY;
 }
 
-function catchUpIndex(progressY) {
+function catchUpIndex(progressY: number[]) {
   const leader = Math.min(...progressY);
   const last = Math.max(...progressY);
   return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
@@ -261,16 +291,16 @@ function catchUpIndex(progressY) {
 
 console.assert(catchUpIndex([0, 20, 60]) === 2 && catchUpIndex([0, 20]) === -1, 'catch-up selection failed');
 
-function isRiverZone(worldY) {
+function isRiverZone(worldY: number) {
   const courseY = HEIGHT / 2 - worldY;
   return courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y;
 }
 
-function isWater(x, worldY) {
+function isWater(x: number, worldY: number) {
   return isRiverZone(worldY) && Math.abs(x) > BRIDGE_HALF_WIDTH;
 }
 
-function canSpawnObstacle(theme, worldY) {
+function canSpawnObstacle(theme: string, worldY: number) {
   return theme === 'night' || !isRiverZone(worldY);
 }
 
@@ -295,22 +325,25 @@ function makeWall() {
     dayCourseTexture,
     nightCourseTexture
   } = course);
-  scene.add(courseWall, courseMarkers, courseNightMarkers);
+  if (courseWall && courseMarkers && courseNightMarkers) {
+    scene.add(courseWall, courseMarkers, courseNightMarkers);
+  }
 }
 
 function clearMountains() {
-  mountains.forEach(({ body, visual }) => {
+  mountains.forEach((item: any) => {
+    const { body, visual } = item;
     world.removeRigidBody(body);
     scene.remove(visual);
-    visual.traverse((item) => {
-      item.geometry?.dispose();
-      item.material?.dispose();
+    visual.traverse((child: any) => {
+      child.geometry?.dispose();
+      child.material?.dispose();
     });
   });
   mountains = [];
 }
 
-function makeMountainVisual(width, height, color) {
+function makeMountainVisual(width: number, height: number, color: number) {
   const group = new THREE.Group();
   const geometry = new THREE.SphereGeometry(1, 10, 6);
   const outline = new THREE.Mesh(
@@ -354,14 +387,14 @@ function createMountains() {
     const visual = makeMountainVisual(width, height, colors[index]);
     visual.position.set(x, y, GRIP_Z);
     scene.add(visual);
-    mountains.push({ body, visual });
+    mountains.push({ body, visual } as any);
   }
 }
 
 function makeFabricTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext('2d')!;
   context.fillStyle = '#e7e2d8';
   context.fillRect(0, 0, canvas.width, canvas.height);
   let seed = 731;
@@ -388,10 +421,10 @@ function makeFabricTexture() {
 const fabricTexture = makeFabricTexture();
 const sphereGeometry = new THREE.SphereGeometry(1, 16, 10);
 
-function makeVisual(key, targetScene = scene) {
+function makeVisual(key: CharacterKey, targetScene = scene) {
   const group = new THREE.Group();
   const doll = new THREE.Group();
-  const accents = [];
+  const accents: THREE.Object3D[] = [];
   group.add(doll);
   const fur = new THREE.MeshStandardMaterial({ color: COLORS[key], map: fabricTexture, bumpMap: fabricTexture, bumpScale: 0.8, roughness: 1 });
   const dark = new THREE.MeshBasicMaterial({ color: key === 'cat' ? 0xd8d6df : 0x332b30 });
@@ -399,14 +432,14 @@ function makeVisual(key, targetScene = scene) {
   const orange = new THREE.MeshStandardMaterial({ color: 0xe9873a, roughness: 0.9 });
   const paw = new THREE.MeshStandardMaterial({ color: key === 'duck' ? 0xe99a47 : key === 'bear' ? 0xe8d4bf : key === 'turtle' ? 0xc5d891 : 0xe5a3a5, roughness: 0.95 });
 
-  const ball = (scale, position, material = fur) => {
+  const ball = (scale: [number, number, number], position: [number, number, number], material: THREE.Material = fur) => {
     const mesh = new THREE.Mesh(sphereGeometry, material);
     mesh.scale.set(...scale);
     mesh.position.set(...position);
     doll.add(mesh);
     return mesh;
   };
-  const limb = (radius, length, position, rotation) => {
+  const limb = (radius: number, length: number, position: [number, number, number], rotation: number) => {
     const geometry = new THREE.CapsuleGeometry(radius, length, 5, 10);
     const mesh = new THREE.Mesh(geometry, fur);
     mesh.position.set(...position);
@@ -450,7 +483,7 @@ function makeVisual(key, targetScene = scene) {
     limb(5, 7, [12, 39, 0], 0.25);
   }
 
-  const normalEyes = [
+  const normalEyes: THREE.Mesh[] = [
     ball([1.8, 2.2, 0.9], [-6.2, 28.5, 11], dark),
     ball([1.8, 2.2, 0.9], [6.2, 28.5, 11], dark)
   ];
@@ -474,13 +507,13 @@ function makeVisual(key, targetScene = scene) {
     doll.add(face);
     return face;
   };
-  const stroke = (face, x, y, rotation, length = 4) => {
+  const stroke = (face: THREE.Group, x: number, y: number, rotation: number, length = 4) => {
     const line = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, length, 3, 6), dark);
     line.position.set(x, y, 12.5);
     line.rotation.z = rotation;
     face.add(line);
   };
-  const roundMouth = (face) => {
+  const roundMouth = (face: THREE.Group) => {
     const mouth = new THREE.Mesh(new THREE.TorusGeometry(2, 0.65, 6, 16), dark);
     mouth.position.set(0, 20, 12.5);
     face.add(mouth);
@@ -517,9 +550,9 @@ function makeVisual(key, targetScene = scene) {
   return group;
 }
 
-function setExpression(visual, expression = 'neutral') {
+function setExpression(visual: THREE.Group, expression = 'neutral') {
   const { faces } = visual.userData;
-  faces.normalEyes.forEach((eye) => { eye.visible = expression !== 'hit' && expression !== 'result'; });
+  faces.normalEyes.forEach((eye: THREE.Mesh) => { eye.visible = expression !== 'hit' && expression !== 'result'; });
   faces.ready.visible = expression === 'ready';
   faces.hit.visible = expression === 'hit';
   faces.result.visible = expression === 'result';
@@ -537,7 +570,7 @@ function renderCharacterPreviews() {
   const light = new THREE.DirectionalLight(0xffffff, 2.2);
   light.position.set(-80, 100, 160);
   previewScene.add(light);
-  const previews = {};
+  const previews: Record<CharacterKey, { ready: string; result: string }> = {} as any;
   CHARACTER_KEYS.forEach((key) => {
     const model = makeVisual(key, previewScene);
     model.rotation.y = -0.08;
@@ -548,7 +581,7 @@ function renderCharacterPreviews() {
     previewRenderer.render(previewScene, previewCamera);
     previews[key] = { ready, result: previewRenderer.domElement.toDataURL('image/png') };
     previewScene.remove(model);
-    model.traverse((part) => {
+    model.traverse((part: any) => {
       if (!part.isMesh) return;
       if (part.geometry !== sphereGeometry) part.geometry.dispose();
       part.material.dispose();
@@ -558,7 +591,7 @@ function renderCharacterPreviews() {
   return previews;
 }
 
-function padWorld(racer, padIndex) {
+function padWorld(racer: Racer, padIndex: number) {
   const translation = racer.body.translation();
   const rotation = racer.body.rotation();
   return PAD_POINTS[padIndex].clone()
@@ -566,7 +599,7 @@ function padWorld(racer, padIndex) {
     .add(new THREE.Vector3(translation.x, translation.y, translation.z));
 }
 
-function attachPad(racer, padIndex) {
+function attachPad(racer: Racer, padIndex: number) {
   if (racer.anchors.some((anchor) => anchor.padIndex === padIndex)) return;
   const point = padWorld(racer, padIndex);
   const anchorBody = world.createRigidBody(
@@ -581,17 +614,17 @@ function attachPad(racer, padIndex) {
   racer.anchors.push({ padIndex, anchorBody, joint });
 }
 
-function detachPad(racer, anchor) {
+function detachPad(racer: Racer, anchor: any) {
   world.removeImpulseJoint(anchor.joint, true);
   world.removeRigidBody(anchor.anchorBody);
   racer.anchors.splice(racer.anchors.indexOf(anchor), 1);
 }
 
-function anchorProgressY(racer) {
+function anchorProgressY(racer: Racer) {
   return Math.min(...racer.anchors.map((anchor) => anchor.anchorBody.translation().y));
 }
 
-function nextPad(racer) {
+function nextPad(racer: Racer) {
   const occupied = new Set(racer.anchors.map((anchor) => anchor.padIndex));
   const anchor = racer.anchors[0].anchorBody.translation();
   const anchorIsHand = racer.anchors[0].padIndex < 2;
@@ -608,7 +641,7 @@ function nextPad(racer) {
     })[0];
 }
 
-function beginFlip(racer) {
+function beginFlip(racer: Racer) {
   const rotation = racer.body.rotation();
   const position = racer.body.translation();
   const anchor = racer.anchors[0].anchorBody.translation();
@@ -620,12 +653,12 @@ function beginFlip(racer) {
   racer.body.wakeUp();
 }
 
-function releaseExtraPad(racer) {
+function releaseExtraPad(racer: Racer) {
   detachPad(racer, racer.anchors[0]);
   if (racer.anchors.length === 1) beginFlip(racer);
 }
 
-function landOnNextPad(racer) {
+function landOnNextPad(racer: Racer) {
   attachPad(racer, nextPad(racer));
   racer.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   racer.stickDuration = 0.5 + Math.random() * 0.35;
@@ -633,15 +666,15 @@ function landOnNextPad(racer) {
   racer.isFlipping = false;
 }
 
-function rotationSinceFlip(racer) {
+function rotationSinceFlip(racer: Racer) {
   const current = racer.body.rotation();
   const start = racer.flipStart;
   const dot = Math.abs(current.x * start.x + current.y * start.y + current.z * start.z + current.w * start.w);
   return 2 * Math.acos(Math.min(1, dot));
 }
 
-function createBodyColliders(index, body) {
-  const add = (hx, hy, hz, radius, x, y, angle = 0) => {
+function createBodyColliders(index: number, body: RAPIER.RigidBody) {
+  const add = (hx: number, hy: number, hz: number, radius: number, x: number, y: number, angle = 0) => {
     const rotation = { x: 0, y: 0, z: Math.sin(angle / 2), w: Math.cos(angle / 2) };
     const collider = world.createCollider(
       RAPIER.ColliderDesc.roundCuboid(hx, hy, hz, radius)
@@ -656,8 +689,6 @@ function createBodyColliders(index, body) {
     colliderRacers.set(collider.handle, index);
   };
 
-  // roundCuboid는 borderRadius만큼 모든 축으로 커지므로 hz + radius를
-  // 몸 중심과 벽 사이 거리(10)에 맞춰 벽 관통과 떨림을 막는다.
   add(21, 24, 4, 7, 0, -4);
 }
 
@@ -699,7 +730,7 @@ function resetMole() {
   console.assert(!mole.collider.isEnabled(), 'mole reset failed');
 }
 
-function ghostStep(x, direction, dt) {
+function ghostStep(x: number, direction: number, dt: number) {
   const next = x + direction * GHOST_SPEED * dt;
   if (direction > 0 && next >= EDGE_SOFT_LIMIT) return { x: EDGE_SOFT_LIMIT, direction: -1 };
   if (direction < 0 && next <= -EDGE_SOFT_LIMIT) return { x: -EDGE_SOFT_LIMIT, direction: 1 };
@@ -708,7 +739,7 @@ function ghostStep(x, direction, dt) {
 
 console.assert(ghostStep(140, 1, 0.1).direction === -1, 'ghost turn failed');
 
-function updateGhost(dt) {
+function updateGhost(dt: number) {
   mole.timer -= dt;
   mole.hit = Math.max(0, mole.hit - dt);
   if (mole.phase === 'hidden') {
@@ -730,9 +761,10 @@ function updateGhost(dt) {
     return;
   }
 
-  const step = ghostStep(mole.group.position.x, mole.direction, dt);
+  const flightY = mole.flightY ?? cameraY;
+  const step = ghostStep(mole.group.position.x, mole.direction ?? 1, dt);
   mole.direction = step.direction;
-  const y = mole.flightY + Math.sin(raceElapsed * 4) * 6;
+  const y = flightY + Math.sin(raceElapsed * 4) * 6;
   mole.group.position.set(step.x, y, 15);
   mole.body.setNextKinematicTranslation({ x: step.x, y, z: 15 });
   const squash = mole.hit ? Math.sin(mole.hit / 0.18 * Math.PI) * 0.35 : 0;
@@ -740,7 +772,7 @@ function updateGhost(dt) {
   mole.head.position.y = 18;
 }
 
-function updateMole(dt) {
+function updateMole(dt: number) {
   if (!running) return;
   if (activeTheme === 'night') {
     updateGhost(dt);
@@ -782,7 +814,7 @@ function updateMole(dt) {
   mole.head.position.y = 18;
 }
 
-function createRacer(index) {
+function createRacer(index: number): Racer {
   const x = -136.5 + index * 91;
   const initialGrip = 0.65 + Math.random() * 0.25;
   const body = world.createRigidBody(
@@ -798,7 +830,7 @@ function createRacer(index) {
   label.className = 'player-label';
   label.textContent = DEFAULT_NAMES[index];
   game.append(label);
-  const racer = {
+  const racer: Racer = {
     index,
     body,
     visual: makeVisual(KEYS[index]),
@@ -810,6 +842,7 @@ function createRacer(index) {
     flipAxisX: 1,
     isFlipping: false,
     knockbackUntil: 0,
+    expressionUntil: 0,
     stickDuration: initialGrip,
     lastProgressY: screenToWorldY(START_Y),
     stalledFor: 0,
@@ -824,7 +857,7 @@ function createRacer(index) {
   return racer;
 }
 
-function placeRacer(racer, x, worldY) {
+function placeRacer(racer: Racer, x: number, worldY: number) {
   [...racer.anchors].forEach((anchor) => detachPad(racer, anchor));
   racer.body.setTranslation({ x, y: worldY, z: 5 }, true);
   racer.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
@@ -834,7 +867,7 @@ function placeRacer(racer, x, worldY) {
   racer.lastProgressY = anchorProgressY(racer);
 }
 
-function recoverStalledRacer(racer) {
+function recoverStalledRacer(racer: Racer) {
   const position = racer.body.translation();
   const y = position.y - 72;
   placeRacer(racer, THREE.MathUtils.clamp(position.x, -EDGE_SOFT_LIMIT, EDGE_SOFT_LIMIT), y);
@@ -854,7 +887,7 @@ function resetRace() {
   lastMotionMagnitude = undefined;
   cameraY = 0;
   camera.position.y = 0;
-  result.hidden = true;
+  if (result) result.hidden = true;
   createMountains();
   resetMole();
   const active = racers.filter((racer) => racer.active);
@@ -869,19 +902,21 @@ function resetRace() {
     racer.expressionUntil = 0;
     setExpression(racer.visual, 'ready');
   });
-  status.textContent = '준비';
-  raceTimer.textContent = '00:00.00';
-  guide.textContent = '캐릭터 위치를 정한 뒤 데굴이 출발';
-  guide.disabled = false;
-  guide.hidden = false;
+  if (status) status.textContent = '준비';
+  if (raceTimer) raceTimer.textContent = '00:00.00';
+  if (guide) {
+    guide.textContent = '캐릭터 위치를 정한 뒤 데굴이 출발';
+    guide.disabled = false;
+    guide.hidden = false;
+  }
 }
 
-function setParticipants(names, characterKeys) {
+function setParticipants(names: string[], characterKeys: CharacterKey[]) {
   racers.forEach((racer, index) => {
     racer.active = index < names.length;
     if (racer.active && racer.characterKey !== characterKeys[index]) {
       scene.remove(racer.visual);
-      racer.visual.traverse((part) => {
+      racer.visual.traverse((part: any) => {
         if (!part.isMesh) return;
         if (part.geometry !== sphereGeometry) part.geometry.dispose();
         part.material.dispose();
@@ -898,14 +933,14 @@ function setParticipants(names, characterKeys) {
   resetRace();
 }
 
-function pointerWorld(event) {
+function pointerWorld(event: PointerEvent) {
   const rect = renderer.domElement.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width - 0.5) * (camera.right - camera.left);
   const y = camera.position.y + (0.5 - (event.clientY - rect.top) / rect.height) * HEIGHT;
   return { x, y };
 }
 
-function nearestOpenPosition(racer, targetX, targetY) {
+function nearestOpenPosition(racer: Racer, targetX: number, targetY: number) {
   const others = racers.filter((item) => item.active && item !== racer).map((item) => item.body.translation());
   const current = racer.body.translation();
   let x = targetX;
@@ -943,18 +978,23 @@ function nearestOpenPosition(racer, targetX, targetY) {
     : current;
 }
 
-let draggedRacer = null;
-renderer.domElement.addEventListener('pointerdown', (event) => {
+let draggedRacer: Racer | null = null;
+renderer.domElement.addEventListener('pointerdown', (event: PointerEvent) => {
   if (running || finished) return;
   const point = pointerWorld(event);
-  draggedRacer = racers.filter((racer) => racer.active).reduce((closest, racer) => {
+  let closestDistance = 48;
+  draggedRacer = null;
+  racers.filter((racer) => racer.active).forEach((racer) => {
     const position = racer.body.translation();
     const distance = Math.hypot(position.x - point.x, position.y - point.y);
-    return distance < closest.distance ? { racer, distance } : closest;
-  }, { racer: null, distance: 48 }).racer;
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      draggedRacer = racer;
+    }
+  });
   if (draggedRacer) renderer.domElement.setPointerCapture(event.pointerId);
 });
-renderer.domElement.addEventListener('pointermove', (event) => {
+renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
   if (!draggedRacer) return;
   const point = pointerWorld(event);
   const position = nearestOpenPosition(
@@ -967,7 +1007,7 @@ renderer.domElement.addEventListener('pointermove', (event) => {
 renderer.domElement.addEventListener('pointerup', () => { draggedRacer = null; });
 renderer.domElement.addEventListener('pointercancel', () => { draggedRacer = null; });
 
-function syncVisuals(dt) {
+function syncVisuals(dt: number) {
   let lowest = Infinity;
   if (running) raceElapsed = (performance.now() - raceStartedAt) / 1000;
   const activeRacers = racers.filter((racer) => racer.active);
@@ -990,12 +1030,12 @@ function syncVisuals(dt) {
     doll.position.set(0, 0, 0);
     doll.rotation.set(0, 0, 0);
     doll.scale.set(1, 1, 1);
-    accents.forEach((part) => {
+    accents.forEach((part: any) => {
       part.rotation.z = part.userData.baseRotationZ;
       part.scale.y = part.userData.baseScaleY;
     });
     if (key === 'bear') doll.position.y = Math.sin(characterMotion * 3.2) * 1.1;
-    else if (key === 'rabbit') accents.forEach((ear, index) => { ear.rotation.z += Math.sin(characterMotion * 9 + index * Math.PI) * 0.13; });
+    else if (key === 'rabbit') accents.forEach((ear: any, index: number) => { ear.rotation.z += Math.sin(characterMotion * 9 + index * Math.PI) * 0.13; });
     else if (key === 'cat') doll.rotation.y = Math.sin(characterMotion * 6) * 0.09;
     else if (key === 'duck') {
       const bounce = Math.sin(characterMotion * 7) * 0.025;
@@ -1003,7 +1043,7 @@ function syncVisuals(dt) {
       accents[0].scale.y *= 1 + Math.abs(bounce) * 2;
     } else if (key === 'turtle') {
       doll.rotation.z = Math.sin(characterMotion * 2.4) * 0.025;
-      accents.forEach((shell) => { shell.rotation.z += Math.sin(characterMotion * 2.4) * 0.04; });
+      accents.forEach((shell: any) => { shell.rotation.z += Math.sin(characterMotion * 2.4) * 0.04; });
     }
     if (running) {
       const progressY = anchorProgressY(racer);
@@ -1067,8 +1107,8 @@ function syncVisuals(dt) {
     const minutes = Math.floor(raceElapsed / 60);
     const seconds = Math.floor(raceElapsed % 60);
     const hundredths = Math.floor(raceElapsed * 100) % 100;
-    raceTimer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
-    status.textContent = performance.now() < shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `데굴 중 ${progress}%`;
+    if (raceTimer) raceTimer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
+    if (status) status.textContent = performance.now() < shakeBoostUntil ? `흔들림 감지 · ${progress}%` : `데굴 중 ${progress}%`;
     if (raceElapsed >= RACE_LIMIT && !finished) {
       const choice = racers.filter((racer) => racer.active)
         .reduce((selected, racer) => racer.body.translation().y < selected.body.translation().y ? racer : selected);
@@ -1077,26 +1117,26 @@ function syncVisuals(dt) {
   }
 }
 
-function finishRace(racer) {
+function finishRace(racer: Racer) {
   finished = true;
   running = false;
   setExpression(racer.visual, 'result');
-  status.textContent = '선택 완료';
-  guide.hidden = true;
-  resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
-  resultCharacterImage.src = characterPreviews[racer.characterKey].result;
-  resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
-  resultSpeech.textContent = `내 선택은 이거야!\n${racer.label.textContent}`;
+  if (status) status.textContent = '선택 완료';
+  if (guide) guide.hidden = true;
+  if (resultTitle && decisionQuestion) resultTitle.textContent = `“${decisionQuestion.value.trim()}”\n데굴이가 골랐어요`;
+  if (resultCharacterImage && characterPreviews[racer.characterKey]) resultCharacterImage.src = characterPreviews[racer.characterKey].result;
+  if (resultCharacterImage) resultCharacterImage.alt = `${CHARACTER_NAMES[racer.characterKey]} 캐릭터`;
+  if (resultSpeech) resultSpeech.textContent = `내 선택은 이거야!\n${racer.label.textContent}`;
   const comments = ['데굴이가 하나를 골랐어요.', '고민 끝! 이걸로 가볼까요?', '가장 먼저 내려온 데굴이의 선택이에요.'];
   resultComments = comments;
   commentIndex = Math.floor(Math.random() * comments.length);
   showComment();
   const row = document.createElement('li');
   row.textContent = `데굴이의 선택: ${racer.label.textContent}`;
-  resultList.replaceChildren(row);
-  showOverlay(result);
+  if (resultList) resultList.replaceChildren(row);
+  if (result) showOverlay(result);
   gsap.from('.result-character', { y: 16, opacity: 0, scale: 0.94, duration: 0.45 * motionScale, delay: 0.12 * motionScale, ease: 'back.out(1.8)' });
-  gsap.from(resultList.children, { y: 18, opacity: 0, stagger: 0.08, duration: 0.4 * motionScale, delay: 0.18 * motionScale });
+  if (resultList) gsap.from(resultList.children, { y: 18, opacity: 0, stagger: 0.08, duration: 0.4 * motionScale, delay: 0.18 * motionScale });
   tone(CHARACTER_TONES[racer.characterKey], 0.25);
   buzz([60, 40, 100]);
 }
@@ -1114,23 +1154,23 @@ function resize() {
 
 async function startRace() {
   if (running || finished) return;
-  guide.disabled = true;
-  raceStart.hidden = false;
+  if (guide) guide.disabled = true;
+  if (raceStart) raceStart.hidden = false;
   signalLights.forEach((light) => light.className = '');
   for (let count = 3; count > 0; count -= 1) {
-    startCount.textContent = `${count}`;
-    startCaption.textContent = '데굴 준비 중';
+    if (startCount) startCount.textContent = `${count}`;
+    if (startCaption) startCaption.textContent = '데굴 준비 중';
     signalLights[3 - count].className = 'on';
     gsap.fromTo('.start-board', { scale: 0.78, rotation: -2 }, { scale: 1, rotation: 0, duration: 0.38 * motionScale, ease: 'back.out(2)' });
-    gsap.fromTo(startCount, { scale: 1.55, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 * motionScale, ease: 'power3.out' });
+    if (startCount) gsap.fromTo(startCount, { scale: 1.55, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 * motionScale, ease: 'power3.out' });
     tone(360 + (3 - count) * 80, 0.16);
     buzz(35);
     await wait(700);
   }
   signalLights.forEach((light) => light.className = 'go');
-  startCount.textContent = '출발!';
-  startCaption.textContent = '데굴데굴 골라줘';
-  gsap.fromTo(startCount, { scale: 0.65 }, { scale: 1.08, duration: 0.32 * motionScale, ease: 'back.out(2.4)' });
+  if (startCount) startCount.textContent = '출발!';
+  if (startCaption) startCaption.textContent = '데굴데굴 골라줘';
+  if (startCount) gsap.fromTo(startCount, { scale: 0.65 }, { scale: 1.08, duration: 0.32 * motionScale, ease: 'back.out(2.4)' });
   gsap.fromTo(game, { x: -5 }, { x: 0, duration: 0.08, repeat: 5, yoyo: true, clearProps: 'x' });
   tone(820, 0.3);
   buzz([60, 35, 90]);
@@ -1139,9 +1179,9 @@ async function startRace() {
   racers.filter((racer) => racer.active).forEach((racer) => setExpression(racer.visual));
   running = true;
   await wait(450);
-  raceStart.hidden = true;
-  guide.hidden = true;
-  guide.disabled = false;
+  if (raceStart) raceStart.hidden = true;
+  if (guide) guide.hidden = true;
+  if (guide) guide.disabled = false;
 }
 
 async function boot() {
@@ -1164,21 +1204,21 @@ async function boot() {
   }
   makeWall();
   mole = createMole();
-  applyTheme(themeSelect.value);
+  if (themeSelect) applyTheme(themeSelect.value);
   racers = KEYS.map((_, index) => createRacer(index));
   characterPreviews = renderCharacterPreviews();
   syncCharacterOptions();
   resize();
-  setupSubmit.disabled = false;
-  setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
+  if (setupSubmit) setupSubmit.disabled = false;
+  if (setupSubmit) setupSubmit.textContent = '데굴이들에게 골라달라고 하기';
   gsap.from('#setup-form', { opacity: 0, duration: 0.5 * motionScale, ease: 'power2.out' });
   gsap.from('.hero-title img', { scale: 0.8, opacity: 0.2, duration: 0.8 * motionScale, ease: 'back.out(1.6)' });
-  gsap.fromTo(setupDescription, { opacity: 0.12 }, { opacity: 1, duration: 0.35 * motionScale });
+  if (setupDescription) gsap.fromTo(setupDescription, { opacity: 0.12 }, { opacity: 1, duration: 0.35 * motionScale });
   if (motionScale) gsap.to('.story-marquee-track', { xPercent: -50, duration: 22, repeat: -1, ease: 'none' });
 
   let previous = performance.now();
   let accumulator = 0;
-  function frame(now) {
+  function frame(now: number) {
     const dt = Math.min((now - previous) / 1000, 0.05);
     previous = now;
     if (running) {
@@ -1195,8 +1235,8 @@ async function boot() {
           }
         });
         world.step(eventQueue);
-        const impacted = new Set();
-        eventQueue.drainCollisionEvents((handleA, handleB, started) => {
+        const impacted = new Set<number>();
+        eventQueue.drainCollisionEvents((handleA: number, handleB: number, started: boolean) => {
           const racerA = colliderRacers.get(handleA);
           const racerB = colliderRacers.get(handleB);
           if (started && racerA !== undefined && racerB !== undefined && racerA !== racerB) {
@@ -1235,43 +1275,49 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 
-guide.addEventListener('click', async () => {
-  await enableMotionSensor();
-  startRace();
-});
-setupForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const participants = nameInputs.map((input, index) => ({ name: input.value.trim(), character: characterSelects[index].value })).filter(({ name }) => name);
-  const names = participants.map(({ name }) => name);
-  if (names.length < 2) {
-    nameInputs.find((input) => !input.value.trim())?.focus();
-    return;
-  }
-  soundEnabled = document.querySelector('#sound-toggle').checked;
-  hapticEnabled = document.querySelector('#haptic-toggle').checked;
-  applyTheme(themeSelect.value);
-  const characterKeys = participants.map(({ character }) => character);
-  raceQuestion.textContent = decisionQuestion.value.trim();
-  setParticipants(names, characterKeys);
-  hideOverlay(setup);
-  tone(420);
-});
+if (guide) {
+  guide.addEventListener('click', async () => {
+    await enableMotionSensor();
+    startRace();
+  });
+}
+if (setupForm) {
+  setupForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const activeParticipants = nameInputs.map((input, index) => ({ name: input.value.trim(), character: (characterSelects[index] as HTMLSelectElement).value })).filter(({ name }) => name);
+    const names = activeParticipants.map(({ name }) => name);
+    if (names.length < 2) {
+      nameInputs.find((input) => !input.value.trim())?.focus();
+      return;
+    }
+    const soundToggle = document.querySelector<HTMLInputElement>('#sound-toggle');
+    const hapticToggle = document.querySelector<HTMLInputElement>('#haptic-toggle');
+    soundEnabled = soundToggle ? soundToggle.checked : true;
+    hapticEnabled = hapticToggle ? hapticToggle.checked : true;
+    if (themeSelect) applyTheme(themeSelect.value);
+    const characterKeys = activeParticipants.map(({ character }) => character as CharacterKey);
+    if (raceQuestion && decisionQuestion) raceQuestion.textContent = decisionQuestion.value.trim();
+    setParticipants(names, characterKeys);
+    if (setup) hideOverlay(setup);
+    tone(420);
+  });
+}
 function syncCharacterOptions() {
-  const active = characterSelects.map((_, index) => index < 2 || Boolean(nameInputs[index].value.trim()));
-  const claimed = new Set();
+  const active = characterSelects.map((_, index) => index < 2 || Boolean(nameInputs[index]?.value.trim()));
+  const claimed = new Set<string>();
   characterSelects.forEach((select, index) => {
     if (!active[index]) return;
-    if (claimed.has(select.value)) select.value = CHARACTER_KEYS.find((key) => !claimed.has(key));
+    if (claimed.has(select.value)) select.value = CHARACTER_KEYS.find((key) => !claimed.has(key)) || select.value;
     claimed.add(select.value);
   });
   characterSelects.forEach((select, index) => {
     const used = new Set(characterSelects.filter((_, otherIndex) => otherIndex !== index && active[otherIndex]).map((item) => item.value));
-    [...select.options].forEach((option) => { option.disabled = used.has(option.value); });
+    Array.from(select.options).forEach((option) => { option.disabled = used.has(option.value); });
     const disabled = !active[index];
-    characterPickers[index].setAttribute('aria-disabled', String(disabled));
-    characterPickers[index].querySelectorAll('button').forEach((button) => { button.disabled = disabled; });
-    characterPreviewLabels[index].textContent = active[index] ? CHARACTER_NAMES[select.value] : '이름 입력 후 선택';
-    if (characterPreviews[select.value]) characterPreviewImages[index].src = characterPreviews[select.value].ready;
+    if (characterPickers[index]) characterPickers[index].setAttribute('aria-disabled', String(disabled));
+    if (characterPickers[index]) characterPickers[index].querySelectorAll('button').forEach((button) => { button.disabled = disabled; });
+    if (characterPreviewLabels[index]) characterPreviewLabels[index].textContent = active[index] ? CHARACTER_NAMES[select.value as CharacterKey] : '이름 입력 후 선택';
+    if (characterPreviews[select.value] && characterPreviewImages[index]) characterPreviewImages[index].src = characterPreviews[select.value].ready;
   });
 }
 characterSelects.forEach((select, index) => {
@@ -1284,51 +1330,59 @@ characterSelects.forEach((select, index) => {
   select.value = KEYS[index];
   select.addEventListener('change', syncCharacterOptions);
 });
-function stepCharacter(index, direction) {
+function stepCharacter(index: number, direction: number) {
   const select = characterSelects[index];
-  const available = [...select.options].filter((option) => !option.disabled || option.selected).map((option) => option.value);
+  const available = Array.from(select.options).filter((option) => !option.disabled || option.selected).map((option) => option.value);
   const next = (available.indexOf(select.value) + direction + available.length) % available.length;
   select.value = available[next];
   syncCharacterOptions();
-  gsap.fromTo(characterPreviewImages[index], { x: direction * 18, opacity: 0.25 }, { x: 0, opacity: 1, duration: 0.25 * motionScale });
+  if (characterPreviewImages[index]) gsap.fromTo(characterPreviewImages[index], { x: direction * 18, opacity: 0.25 }, { x: 0, opacity: 1, duration: 0.25 * motionScale });
 }
 
-const swipeDirection = (distance) => Math.abs(distance) >= 30 ? -Math.sign(distance) : 0;
+const swipeDirection = (distance: number) => Math.abs(distance) >= 30 ? -Math.sign(distance) : 0;
 console.assert(swipeDirection(-40) === 1 && swipeDirection(20) === 0, 'character swipe failed');
 
 characterSteps.forEach((button) => button.addEventListener('click', () => {
-  stepCharacter(participants.indexOf(button.closest('.participant')), Number(button.dataset.direction));
+  const participant = button.closest('.participant') as HTMLElement;
+  if (participant) stepCharacter(participants.indexOf(participant), Number(button.dataset.direction));
 }));
 characterPickers.forEach((picker, index) => {
-  const preview = picker.querySelector('.mini-character-preview');
-  let startX;
-  preview.addEventListener('pointerdown', (event) => {
+  const preview = picker.querySelector<HTMLElement>('.mini-character-preview');
+  if (!preview) return;
+  let startX = 0;
+  preview.addEventListener('pointerdown', (event: PointerEvent) => {
     startX = event.clientX;
     preview.setPointerCapture(event.pointerId);
   });
-  preview.addEventListener('pointerup', (event) => {
+  preview.addEventListener('pointerup', (event: PointerEvent) => {
     const direction = swipeDirection(event.clientX - startX);
     if (direction && picker.getAttribute('aria-disabled') !== 'true') stepCharacter(index, direction);
   });
 });
 nameInputs.forEach((input) => input.addEventListener('input', syncCharacterOptions));
-themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
+if (themeSelect) themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
 setInterval(() => {
   if (themeMode === 'auto' && themeForMode('auto') !== activeTheme) applyTheme('auto');
 }, 60000);
 syncCharacterOptions();
-document.querySelector('#replay').addEventListener('click', () => {
-  resetRace();
-  startRace();
-});
-document.querySelector('#edit-players').addEventListener('click', () => {
-  result.hidden = true;
-  showOverlay(setup);
-});
-commentPrev.addEventListener('click', () => showComment(-1));
-commentNext.addEventListener('click', () => showComment(1));
+const replayBtn = document.querySelector('#replay');
+if (replayBtn) {
+  replayBtn.addEventListener('click', () => {
+    resetRace();
+    startRace();
+  });
+}
+const editPlayersBtn = document.querySelector('#edit-players');
+if (editPlayersBtn) {
+  editPlayersBtn.addEventListener('click', () => {
+    if (result) result.hidden = true;
+    if (setup) showOverlay(setup);
+  });
+}
+if (commentPrev) commentPrev.addEventListener('click', () => showComment(-1));
+if (commentNext) commentNext.addEventListener('click', () => showComment(1));
 addEventListener('resize', resize);
 boot().catch((error) => {
   console.error(error);
-  errorBox.style.display = 'grid';
+  if (errorBox) errorBox.style.display = 'grid';
 });
