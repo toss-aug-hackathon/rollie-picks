@@ -7,10 +7,10 @@ const WIDTH = 390;
 const HEIGHT = 844;
 const START_LINE_Y = 360;
 const START_Y = START_LINE_Y - 55;
-// Keep the supplied 836x1881 course artwork at its original aspect ratio
+// Keep the generated 724x4044 course artwork at its original aspect ratio
 // instead of stretching it to an arbitrary tall gameplay plane.
-const COURSE_HEIGHT = Math.round(WIDTH * (1881 / 836));
-const FLOOR_Y = COURSE_HEIGHT - 48;
+const COURSE_HEIGHT = Math.round(WIDTH * (4044 / 724));
+const FLOOR_Y = COURSE_HEIGHT - 180;
 const RACE_RUSH_TIME = 40;
 const RACE_LIMIT = 58;
 const MOLE_UP_TIME = 2.2;
@@ -26,12 +26,13 @@ const EDGE_SOFT_LIMIT = 145;
 const EDGE_INWARD_FORCE = 18;
 const GHOST_FLY_TIME = 6;
 const GHOST_SPEED = 155;
+const ROCK_COUNT = 3;
 const RIVER_TOP_Y = 430;
 const RIVER_BOTTOM_Y = 585;
 const BRIDGE_HALF_WIDTH = 64;
 const WATER_SPEED = 0.72;
 
-export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'ghost' | 'mole';
+export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle' | 'ghost' | 'mole';
 export type ThemeMode = 'auto' | 'day' | 'night';
 export type CharacterPreviewMap = Partial<Record<CharacterKey, string>>;
 
@@ -56,11 +57,12 @@ export const CHARACTER_DATA: Record<CharacterKey, { name: string; icon: string; 
   rabbit: { name: '토끼', icon: '🐰', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'rabbit' },
   cat: { name: '고양이', icon: '🐱', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'cat' },
   duck: { name: '오리', icon: '🐥', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'duck' },
+  turtle: { name: '거북이', icon: '🐢', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'turtle' },
   ghost: { name: '유령', icon: '👻', preview: 'assets/ghost-plush-PG6yuj_G.webp', modelType: 'ghost' },
   mole: { name: '두더지', icon: '🦔', preview: 'assets/mole-plush-DJrSbKGU.webp', modelType: 'mole' }
 };
 
-const COLORS: Record<string, number> = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, ghost: 0xffffff, mole: 0x765038 };
+const COLORS: Record<string, number> = { bear: 0xc6a27f, rabbit: 0xeee7cf, cat: 0x302e38, duck: 0xf1cd58, turtle: 0x8eb879, ghost: 0xffffff, mole: 0x765038 };
 const PAD_POINTS = [
   new THREE.Vector3(-27, 27, 0),
   new THREE.Vector3(27, 27, 0),
@@ -68,6 +70,16 @@ const PAD_POINTS = [
   new THREE.Vector3(18, -35, 0)
 ];
 const START_PADS = [[0, 1, 2, 3], [1, 0, 3, 2], [0, 1, 2, 3], [1, 0, 3, 2]];
+
+function ghostStep(x: number, direction: number, dt: number) {
+  const next = x + direction * GHOST_SPEED * dt;
+  if (direction > 0 && next >= EDGE_SOFT_LIMIT) return { x: EDGE_SOFT_LIMIT, direction: -1 };
+  if (direction < 0 && next <= -EDGE_SOFT_LIMIT) return { x: -EDGE_SOFT_LIMIT, direction: 1 };
+  return { x: next, direction };
+}
+
+console.assert(ghostStep(WIDTH / 2 + 55, -1, 0.1).direction === -1, 'ghost entrance failed');
+console.assert(ghostStep(140, 1, 0.1).direction === -1, 'ghost turn failed');
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -102,6 +114,7 @@ export class GameEngine {
   private racers: any[] = [];
   private colliderRacers = new Map<number, number>();
   private mole: any;
+  private rocks: any[] = [];
   private animFrameId: number | null = null;
   private fabricTexture!: THREE.Texture;
   private sphereGeometry = new THREE.SphereGeometry(1, 16, 10);
@@ -178,6 +191,8 @@ export class GameEngine {
     }
 
     this.makeWall();
+    this.rocks = Array.from({ length: ROCK_COUNT }, () => this.createRock());
+    this.randomizeRocks();
     this.mole = this.createMole();
     this.racers = ['bear', 'rabbit', 'cat', 'duck'].map((key, index) => this.createRacer(index, key as CharacterKey));
     this.options.onCharacterPreviewsReady?.(this.createCharacterPreviews());
@@ -257,7 +272,7 @@ export class GameEngine {
     const dark = new THREE.MeshBasicMaterial({ color: key === 'cat' ? 0xd8d6df : 0x332b30 });
     const pink = new THREE.MeshBasicMaterial({ color: 0xe89b9b });
     const orange = new THREE.MeshStandardMaterial({ color: 0xe9873a, roughness: 0.9 });
-    const paw = new THREE.MeshStandardMaterial({ color: key === 'duck' ? 0xe99a47 : 0xe8d4bf, roughness: 0.95 });
+    const paw = new THREE.MeshStandardMaterial({ color: key === 'duck' ? 0xe99a47 : key === 'turtle' ? 0xc5d891 : 0xe8d4bf, roughness: 0.95 });
 
     const ball = (scale: [number, number, number], position: [number, number, number], material: THREE.Material = fur) => {
       const mesh = new THREE.Mesh(this.sphereGeometry, material);
@@ -275,12 +290,23 @@ export class GameEngine {
       return mesh;
     };
 
+    if (key === 'turtle') {
+      const shell = new THREE.MeshStandardMaterial({ color: 0x557a43, map: this.fabricTexture, bumpMap: this.fabricTexture, bumpScale: 1, roughness: 1 });
+      ball([26, 29, 8], [0, -3, -5], shell);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 8, 24), new THREE.MeshStandardMaterial({ color: 0x355d37, roughness: 1 }));
+      rim.scale.set(22, 25, 2);
+      rim.position.set(0, -3, 4);
+      doll.add(rim);
+      accents.push(rim);
+    }
     ball([19, 25, 11], [0, -3, 0]);
     ball([22, 20, 12], [0, 25, 0]);
     limb(7, 20, [-23, 13, 0], 0.78);
     limb(7, 20, [23, 13, 0], -0.78);
     limb(8, 18, [-10, -30, 0], -0.34);
     limb(8, 18, [10, -30, 0], 0.34);
+
+    if (key === 'turtle') ball([14, 18, 2], [0, -4, 10], paw);
 
     if (key === 'bear') {
       ball([8, 8, 6], [-14, 43, 0]);
@@ -307,6 +333,10 @@ export class GameEngine {
     const hitFace = new THREE.Group(); hitFace.visible = false; doll.add(hitFace);
     const resultFace = new THREE.Group(); resultFace.visible = false; doll.add(resultFace);
 
+    accents.forEach((part) => {
+      part.userData.baseRotationZ = part.rotation.z;
+      part.userData.baseScaleY = part.scale.y;
+    });
     group.userData = { doll, accents, key, faces: { normalEyes, ready: readyFace, hit: hitFace, result: resultFace } };
     targetScene.add(group);
     return group;
@@ -380,16 +410,52 @@ export class GameEngine {
     return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
   }
 
+  private createRock() {
+    const mesh = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(18, 0),
+      new THREE.MeshStandardMaterial({ color: 0x87918d, roughness: 1, flatShading: true })
+    );
+    mesh.position.z = 12;
+    this.scene.add(mesh);
+
+    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+    const collider = this.world.createCollider(
+      RAPIER.ColliderDesc.ball(17)
+        .setRestitution(1.45)
+        .setFriction(0)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+      body
+    );
+    return { mesh, body, collider };
+  }
+
+  private randomizeRocks() {
+    this.rocks.forEach((rock, index) => {
+      let courseY = 560 + index * ((FLOOR_Y - 720) / Math.max(1, ROCK_COUNT - 1)) + THREE.MathUtils.randFloat(-45, 45);
+      if (Math.abs(courseY - COURSE_HEIGHT / 2) < 230) courseY += courseY < COURSE_HEIGHT / 2 ? -230 : 230;
+      const x = THREE.MathUtils.randFloat(-115, 115);
+      const y = this.screenToWorldY(courseY);
+      const scale = THREE.MathUtils.randFloat(0.82, 1.18);
+      rock.mesh.position.set(x, y, 12);
+      rock.mesh.rotation.z = Math.random() * Math.PI;
+      rock.mesh.scale.set(scale, scale * THREE.MathUtils.randFloat(0.8, 1.05), scale);
+      rock.body.setNextKinematicTranslation({ x, y, z: GRIP_Z });
+    });
+  }
+
   private createRacer(index: number, characterKey: CharacterKey = 'bear') {
-    const startX = -117 + index * RACER_GAP_X;
+    const startX = -136.5 + index * 91;
     const startY = this.screenToWorldY(START_Y);
+    const initialGrip = 0.65 + Math.random() * 0.25;
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(startX, startY, GRIP_Z)
-        .setLinearDamping(0.12)
-        .setAngularDamping(0.08)
+        .setLinearDamping(0.35)
+        .setAngularDamping(0.7)
+        .setCcdEnabled(true)
+        .setAdditionalSolverIterations(8)
     );
-    body.setAdditionalMass(0.015, true);
+    this.createBodyCollider(index, body);
 
     const visual = this.makeVisual(characterKey);
 
@@ -400,32 +466,37 @@ export class GameEngine {
       characterKey,
       name: this.participantData[index]?.name || CHARACTER_DATA[characterKey].name,
       anchors: [] as any[],
-      gripElapsed: 0,
-      flipStart: null,
+      gripElapsed: -initialGrip,
+      flipStart: { ...body.rotation() },
       flipAxisX: 1,
       isFlipping: false,
       knockbackUntil: 0,
       expressionUntil: 0,
-      stickDuration: 0.5,
+      stickDuration: initialGrip,
       lastProgressY: startY,
       stalledFor: 0,
       placed: false,
       active: true
     };
 
-    START_PADS[index].forEach((padIndex) => {
-      const point = PAD_POINTS[padIndex].clone().add(new THREE.Vector3(startX, startY, GRIP_Z));
-      const anchorBody = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(point.x, point.y, GRIP_Z));
-      const joint = this.world.createImpulseJoint(
-        RAPIER.JointData.spherical({ x: 0, y: 0, z: 0 }, PAD_POINTS[padIndex]),
-        anchorBody,
-        body,
-        true
-      );
-      racer.anchors.push({ padIndex, anchorBody, joint, removed: false });
-    });
+    START_PADS[index].forEach((padIndex) => this.attachPad(racer, padIndex));
+    racer.lastProgressY = this.anchorProgressY(racer);
+    body.setAngvel({ x: 0, y: 0, z: 0.05 * (index % 2 ? 1 : -1) }, true);
 
     return racer;
+  }
+
+  private createBodyCollider(index: number, body: RAPIER.RigidBody) {
+    const collider = this.world.createCollider(
+      RAPIER.ColliderDesc.roundCuboid(21, 24, 4, 7)
+        .setTranslation(0, -4, 0)
+        .setDensity(0.0007)
+        .setFriction(0)
+        .setRestitution(0.18)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+      body
+    );
+    this.colliderRacers.set(collider.handle, index);
   }
 
   public setParticipants(participants: RacerInfo[]) {
@@ -435,16 +506,19 @@ export class GameEngine {
     this.racers.forEach((racer, index) => {
       const participant = this.participantData[index];
       racer.active = Boolean(participant && participant.name.trim());
-      // Keep the Three.js scene in sync with the selected participant list.
-      // Inactive slots must not remain visible on the race screen.
       racer.visual.visible = racer.active;
-      if (!participant) return;
+      racer.body.setEnabled(racer.active);
+      if (!racer.active) {
+        [...racer.anchors].forEach((anchor) => this.detachPad(racer, anchor));
+        return;
+      }
       racer.name = participant.name;
-      if (racer.characterKey === participant.characterKey) return;
-      this.scene.remove(racer.visual);
-      racer.visual = this.makeVisual(participant.characterKey);
-      racer.characterKey = participant.characterKey;
-      racer.visual.visible = racer.active;
+      if (racer.characterKey !== participant.characterKey) {
+        this.scene.remove(racer.visual);
+        racer.visual = this.makeVisual(participant.characterKey);
+        racer.characterKey = participant.characterKey;
+      }
+      racer.visual.visible = true;
     });
   }
 
@@ -551,7 +625,7 @@ export class GameEngine {
 
   private recoverStalledRacer(racer: any) {
     const position = racer.body.translation();
-    const y = position.y - 72;
+    const y = position.y - 16;
     this.placeRacer(racer, THREE.MathUtils.clamp(position.x, -EDGE_SOFT_LIMIT, EDGE_SOFT_LIMIT), y);
     racer.isFlipping = false;
     racer.stickDuration = 0.18;
@@ -569,23 +643,23 @@ export class GameEngine {
     racer.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     racer.lastProgressY = startY;
     racer.gripElapsed = 0;
+    racer.flipStart = { ...racer.body.rotation() };
+    racer.isFlipping = false;
+    racer.knockbackUntil = 0;
+    racer.expressionUntil = 0;
+    racer.stickDuration = 0;
     racer.stalledFor = 0;
     racer.placed = false;
     racer.visual.visible = racer.active;
   }
 
   private placeRacer(racer: any, x: number, worldY: number) {
-    if (!racer.anchors.length) {
-      START_PADS[racer.index].forEach((padIndex: number) => this.attachPad(racer, padIndex));
-    }
+    [...racer.anchors].forEach((anchor) => this.detachPad(racer, anchor));
     racer.body.setTranslation({ x, y: worldY, z: GRIP_Z }, true);
     racer.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     racer.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     racer.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    racer.anchors.forEach((anchor: any) => {
-      const point = this.padWorld(racer, anchor.padIndex);
-      anchor.anchorBody.setTranslation({ x: point.x, y: point.y, z: GRIP_Z }, true);
-    });
+    START_PADS[racer.index].forEach((padIndex: number) => this.attachPad(racer, padIndex));
     racer.lastProgressY = this.anchorProgressY(racer);
     racer.visual.position.set(x, worldY, GRIP_Z);
   }
@@ -662,6 +736,10 @@ export class GameEngine {
 
   private updateObstacle(dt: number) {
     if (!this.running || !this.mole) return;
+    if (this.activeTheme === 'night') {
+      this.updateGhost(dt);
+      return;
+    }
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
     if (this.mole.timer <= 0) {
@@ -689,16 +767,37 @@ export class GameEngine {
     const warning = this.mole.phase === 'warning';
     const pop = warning ? 0.08 : Math.min(1, (MOLE_UP_TIME - this.mole.timer) * 7, this.mole.timer * 7);
     this.mole.head.scale.y = Math.max(0.02, pop);
-    if (this.mole.phase === 'up') {
-      this.racers.filter((racer) => racer.active).forEach((racer) => {
-        const position = racer.body.translation();
-        if (Math.hypot(position.x - this.mole.group.position.x, position.y - this.mole.group.position.y) < 58) {
-          racer.body.setTranslation({ x: position.x, y: position.y + 70, z: GRIP_Z }, true);
-          racer.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          this.mole.hit = 0.18;
-        }
-      });
+  }
+
+  private updateGhost(dt: number) {
+    this.mole.timer -= dt;
+    this.mole.hit = Math.max(0, this.mole.hit - dt);
+    if (this.mole.phase === 'hidden') {
+      if (this.mole.timer > 0) return;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      this.mole.direction = -side;
+      this.mole.flightY = this.cameraY - THREE.MathUtils.randFloat(190, 330);
+      this.mole.group.position.set(side * (WIDTH / 2 + 55), this.mole.flightY, 15);
+      this.mole.group.visible = true;
+      this.mole.dirt.visible = false;
+      this.mole.collider.setEnabled(true);
+      this.mole.phase = 'flying';
+      this.mole.timer = GHOST_FLY_TIME;
+    } else if (this.mole.timer <= 0) {
+      this.mole.phase = 'hidden';
+      this.mole.timer = THREE.MathUtils.randFloat(0.7, 1.3);
+      this.mole.group.visible = false;
+      this.mole.collider.setEnabled(false);
+      return;
     }
+
+    const step = ghostStep(this.mole.group.position.x, this.mole.direction, dt);
+    this.mole.direction = step.direction;
+    const y = this.mole.flightY + Math.sin(this.raceElapsed * 4) * 6;
+    this.mole.group.position.set(step.x, y, 15);
+    this.mole.body.setNextKinematicTranslation({ x: step.x, y, z: 15 });
+    const squash = this.mole.hit ? Math.sin(this.mole.hit / 0.18 * Math.PI) * 0.35 : 0;
+    this.mole.head.scale.set(1 + squash, 1 - squash * 0.45, 1);
   }
 
   private setExpression(visual: THREE.Group, expression: 'neutral' | 'ready' | 'result') {
@@ -742,12 +841,13 @@ export class GameEngine {
     if (!active.length) return;
     const progress = active.map((racer) => this.anchorProgressY(racer));
     const leaderY = Math.min(...progress);
+    const lastY = Math.max(...progress);
+    const boostedRacer = lastY - leaderY >= CATCH_UP_GAP ? active[progress.lastIndexOf(lastY)] : undefined;
 
     active.forEach((racer) => {
       const position = racer.body.translation();
-      const gapBoost = position.y - leaderY > CATCH_UP_GAP ? CATCH_UP_BOOST : 1;
-      const waterSlow = this.isWater(position.x, position.y) ? WATER_SPEED : 1;
-      const speed = ROLL_SPEED * gapBoost * waterSlow * (this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
+      const catchUpBoost = racer === boostedRacer ? CATCH_UP_BOOST : 1;
+      const speed = ROLL_SPEED * catchUpBoost * (this.raceElapsed > RACE_RUSH_TIME ? 1.55 : 1);
       racer.gripElapsed += dt * speed;
 
       const sticking = racer.anchors.length > 1 && !racer.isFlipping && racer.gripElapsed < 0;
@@ -758,10 +858,13 @@ export class GameEngine {
 
       if (racer.isFlipping) {
         const angular = racer.body.angvel();
-        const rollingSpeed = ROLL_SPEED * gapBoost
+        const slowedByWater = this.isWater(position.x, position.y);
+        const rollingSpeed = ROLL_SPEED * catchUpBoost
           * (2.5 + 6 * (1 - Math.exp(-racer.gripElapsed * 2)))
-          * (waterSlow < 1 ? WATER_SPEED : 1);
-        if (waterSlow < 1 || angular.x * racer.flipAxisX < rollingSpeed) {
+          * (slowedByWater ? WATER_SPEED : 1);
+        if (racer.knockbackUntil > this.raceElapsed) {
+          racer.body.setAngvel({ x: -racer.flipAxisX * 10, y: angular.y, z: angular.z }, true);
+        } else if (slowedByWater || angular.x * racer.flipAxisX < rollingSpeed) {
           racer.body.setAngvel({ x: racer.flipAxisX * rollingSpeed, y: angular.y, z: angular.z }, true);
         }
       }
@@ -776,6 +879,7 @@ export class GameEngine {
         && Math.abs(landingPoint.z - GRIP_Z) < 12
       );
       const completedFlip = racer.isFlipping
+        && racer.knockbackUntil <= this.raceElapsed
         && racer.gripElapsed > 0.12
         && lowerPadTouched
         && this.rotationSinceFlip(racer) > 1.2;
@@ -790,8 +894,24 @@ export class GameEngine {
       const rotation = racer.body.rotation();
       racer.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       const { doll, accents, key } = racer.visual.userData;
-      doll.position.y = key === 'bear' ? Math.sin(this.raceElapsed * 4) * 2 : 0;
-      if (key === 'rabbit') accents.forEach((ear: THREE.Object3D, index: number) => { ear.rotation.z = ear.userData.baseRotationZ + Math.sin(this.raceElapsed * 9 + index * Math.PI) * 0.13; });
+      doll.position.set(0, 0, 0);
+      doll.rotation.set(0, 0, 0);
+      doll.scale.set(1, 1, 1);
+      accents.forEach((part: THREE.Object3D) => {
+        part.rotation.z = part.userData.baseRotationZ;
+        part.scale.y = part.userData.baseScaleY;
+      });
+      if (key === 'bear') doll.position.y = Math.sin(this.raceElapsed * 3.2) * 1.1;
+      else if (key === 'rabbit') accents.forEach((ear: THREE.Object3D, index: number) => { ear.rotation.z += Math.sin(this.raceElapsed * 9 + index * Math.PI) * 0.13; });
+      else if (key === 'cat') doll.rotation.y = Math.sin(this.raceElapsed * 6) * 0.09;
+      else if (key === 'duck') {
+        const bounce = Math.sin(this.raceElapsed * 7) * 0.025;
+        doll.scale.set(1 + bounce, 1 - bounce, 1);
+        accents[0].scale.y *= 1 + Math.abs(bounce) * 2;
+      } else if (key === 'turtle') {
+        doll.rotation.z = Math.sin(this.raceElapsed * 2.4) * 0.025;
+        accents.forEach((shell: THREE.Object3D) => { shell.rotation.z += Math.sin(this.raceElapsed * 2.4) * 0.04; });
+      }
       const progressY = this.anchorProgressY(racer);
       if (progressY < racer.lastProgressY - 18) {
         racer.lastProgressY = progressY;
@@ -799,7 +919,7 @@ export class GameEngine {
       } else {
         racer.stalledFor += dt;
       }
-      if (racer.stalledFor > 2.5 && this.raceElapsed > 4) {
+      if (racer.stalledFor > 4.5 && this.raceElapsed > 4) {
         this.recoverStalledRacer(racer);
       }
       if (nextPosition.y < this.screenToWorldY(FLOOR_Y)) racer.placed = true;
@@ -904,6 +1024,7 @@ export class GameEngine {
       this.mole.group.visible = false;
       this.mole.collider.setEnabled(false);
     }
+    this.randomizeRocks();
     this.cameraY = 0;
     if (this.camera) this.camera.position.y = 0;
     const activeRacers = this.racers.filter((racer) => racer.active);
@@ -932,12 +1053,16 @@ export class GameEngine {
     this.renderer.setSize(width, height, false);
     const visibleHeight = HEIGHT;
     const visibleWidth = (visibleHeight * width) / height;
+    const backgroundScale = Math.max(1, visibleWidth / WIDTH);
 
     this.camera.left = -visibleWidth / 2;
     this.camera.right = visibleWidth / 2;
     this.camera.top = visibleHeight / 2;
     this.camera.bottom = -visibleHeight / 2;
     this.camera.updateProjectionMatrix();
+    if (this.courseWall) this.courseWall.scale.x = backgroundScale;
+    if (this.courseMarkers) this.courseMarkers.scale.x = backgroundScale;
+    if (this.courseNightMarkers) this.courseNightMarkers.scale.x = backgroundScale;
   };
 
   private startLoop = () => {
@@ -951,12 +1076,48 @@ export class GameEngine {
       if (this.running) {
         accumulator += dt;
         while (accumulator >= 1 / 60) {
+          this.updateObstacle(this.world.timestep);
+          this.racers.forEach((racer) => {
+            if (!racer.active) return;
+            const x = racer.body.translation().x;
+            const edgeDepth = Math.abs(x) - EDGE_SOFT_LIMIT;
+            if (edgeDepth > 0) {
+              const impulse = (EDGE_INWARD_FORCE + edgeDepth * 2) * this.world.timestep * racer.body.mass();
+              racer.body.applyImpulse({ x: -Math.sign(x) * impulse, y: 0, z: 0 }, true);
+            }
+          });
           this.world.step(this.eventQueue);
+          const impacted = new Set<number>();
+          this.eventQueue.drainCollisionEvents((handleA, handleB, started) => {
+            const racerA = this.colliderRacers.get(handleA);
+            const racerB = this.colliderRacers.get(handleB);
+            if (started && racerA !== undefined && racerB !== undefined && racerA !== racerB) {
+              impacted.add(racerA);
+              impacted.add(racerB);
+            }
+            const obstacle = handleA === this.mole.collider.handle || handleB === this.mole.collider.handle
+              ? this.mole
+              : this.rocks.find((rock) => handleA === rock.collider.handle || handleB === rock.collider.handle);
+            const obstacleHit = handleA === obstacle?.collider.handle ? racerB : handleB === obstacle?.collider.handle ? racerA : undefined;
+            if (started && obstacleHit !== undefined) {
+              const racer = this.racers[obstacleHit];
+              const direction = Math.sign(racer.body.translation().x - obstacle.body.translation().x) || 1;
+              const mass = racer.body.mass();
+              while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
+              if (!racer.isFlipping) this.beginFlip(racer);
+              racer.knockbackUntil = this.raceElapsed + 0.65;
+              racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
+              if (obstacle === this.mole) this.mole.hit = 0.18;
+            }
+          });
+          impacted.forEach((index) => {
+            const racer = this.racers[index];
+            if (racer?.anchors.length > 1) racer.gripElapsed += 0.14;
+          });
           accumulator -= 1 / 60;
         }
 
         this.raceElapsed = (performance.now() - this.raceStartedAt) / 1000;
-        this.updateObstacle(dt);
         this.syncRace(dt);
         const totalSec = this.raceElapsed;
         const mins = Math.floor(totalSec / 60);
