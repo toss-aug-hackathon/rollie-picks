@@ -59,8 +59,8 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
         <h2 id="result-title">{winnerName}</h2>
 
         <div className="result-character">
-          {characterPreviews[winnerCharKey] && (
-            <img id="result-character-image" src={characterPreviews[winnerCharKey]} alt={charData.name} />
+          {characterPreviews[`${winnerCharKey}-result`] && (
+            <img id="result-character-image" src={characterPreviews[`${winnerCharKey}-result`]} alt={charData.name} />
           )}
         </div>
 
