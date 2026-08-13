@@ -25,6 +25,7 @@ const EDGE_INWARD_FORCE = 18;
 const MOLE_UP_TIME = 3;
 const GHOST_FLY_TIME = 6;
 const GHOST_SPEED = 155;
+const ROCK_COUNT = 3;
 const RIVER_TOP_Y = 1350;
 const RIVER_BOTTOM_Y = 1780;
 const BRIDGE_HALF_WIDTH = 64;
@@ -132,6 +133,7 @@ export class GameEngine {
   private racers: any[] = [];
   private colliderRacers = new Map<number, number>();
   private mole: any;
+  private rocks: any[] = [];
   private animFrameId: number | null = null;
   private resizeObserver?: ResizeObserver;
   private fabricTexture!: THREE.Texture;
@@ -218,6 +220,8 @@ export class GameEngine {
 
     this.makeWall();
     this.mole = this.createMole();
+    this.rocks = Array.from({ length: ROCK_COUNT }, () => this.createRock());
+    this.randomizeRocks();
     this.racers = ['bear', 'rabbit', 'cat', 'duck'].map((key, index) => this.createRacer(index, key as CharacterKey));
     this.options.onCharacterPreviewsReady?.(this.createCharacterPreviews());
 
@@ -585,8 +589,12 @@ export class GameEngine {
     const textureLoader = new THREE.TextureLoader();
     const moleTexture = textureLoader.load(new URL('../assets/obstacles/mole-plush.webp', import.meta.url).href);
     const ghostTexture = textureLoader.load(new URL('../assets/obstacles/ghost-plush.webp', import.meta.url).href);
+    const moleHitTexture = textureLoader.load(new URL('../assets/obstacles/mole-plush-hit.webp', import.meta.url).href);
+    const ghostHitTexture = textureLoader.load(new URL('../assets/obstacles/ghost-plush-hit.webp', import.meta.url).href);
     moleTexture.colorSpace = THREE.SRGBColorSpace;
     ghostTexture.colorSpace = THREE.SRGBColorSpace;
+    moleHitTexture.colorSpace = THREE.SRGBColorSpace;
+    ghostHitTexture.colorSpace = THREE.SRGBColorSpace;
     const head = new THREE.Mesh(
       new THREE.PlaneGeometry(92, 78),
       new THREE.MeshBasicMaterial({ map: moleTexture, transparent: true, alphaTest: 0.04 })
@@ -604,7 +612,42 @@ export class GameEngine {
       body
     );
     collider.setEnabled(false);
-    return { group, dirt, head, body, collider, moleTexture, ghostTexture, phase: 'hidden', timer: 1.2, hit: 0 };
+    return { group, dirt, head, body, collider, moleTexture, ghostTexture, moleHitTexture, ghostHitTexture, phase: 'hidden', timer: 1.2, hit: 0 };
+  }
+
+  private createRock() {
+    const texture = new THREE.TextureLoader().load(new URL('../assets/obstacles/rock.webp', import.meta.url).href);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(62, 56),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.04 })
+    );
+    mesh.position.z = 12;
+    this.scene.add(mesh);
+
+    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+    const collider = this.world.createCollider(
+      RAPIER.ColliderDesc.ball(17)
+        .setRestitution(1.45)
+        .setFriction(0)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+      body
+    );
+    return { mesh, body, collider };
+  }
+
+  private randomizeRocks() {
+    this.rocks.forEach((rock, index) => {
+      let courseY = 560 + index * ((FLOOR_Y - 720) / Math.max(1, ROCK_COUNT - 1)) + THREE.MathUtils.randFloat(-45, 45);
+      if (courseY >= RIVER_TOP_Y && courseY <= RIVER_BOTTOM_Y) courseY = RIVER_BOTTOM_Y + 90;
+      const x = THREE.MathUtils.randFloat(-115, 115);
+      const y = this.screenToWorldY(courseY);
+      const scale = THREE.MathUtils.randFloat(0.82, 1.18);
+      rock.mesh.position.set(x, y, 12);
+      rock.mesh.rotation.z = THREE.MathUtils.randFloat(-Math.PI / 4, Math.PI / 4);
+      rock.mesh.scale.set(scale, scale * THREE.MathUtils.randFloat(0.8, 1.05), scale);
+      rock.body.setNextKinematicTranslation({ x, y, z: GRIP_Z });
+    });
   }
 
   private createBodyColliders(index: number, body: RAPIER.RigidBody) {
@@ -967,6 +1010,7 @@ export class GameEngine {
   private updateGhost(dt: number) {
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
+    (this.mole.head.material as THREE.MeshBasicMaterial).map = this.mole.hit ? this.mole.ghostHitTexture : this.mole.ghostTexture;
     if (this.mole.phase === 'hidden') {
       if (this.mole.timer > 0) return;
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -1015,6 +1059,7 @@ export class GameEngine {
     }
     this.mole.timer -= dt;
     this.mole.hit = Math.max(0, this.mole.hit - dt);
+    (this.mole.head.material as THREE.MeshBasicMaterial).map = this.mole.hit ? this.mole.moleHitTexture : this.mole.moleTexture;
     if (this.mole.timer <= 0) {
       if (this.mole.phase === 'hidden') {
         const x = THREE.MathUtils.randFloat(-125, 125);
@@ -1325,7 +1370,9 @@ export class GameEngine {
 
     if (this.mole) {
       const material = this.mole.head.material as THREE.MeshBasicMaterial;
-      material.map = night ? this.mole.ghostTexture : this.mole.moleTexture;
+      material.map = night
+        ? (this.mole.hit ? this.mole.ghostHitTexture : this.mole.ghostTexture)
+        : (this.mole.hit ? this.mole.moleHitTexture : this.mole.moleTexture);
       material.needsUpdate = true;
       if (previousTheme !== this.activeTheme) this.resetMole();
       this.mole.dirt.visible = !night && this.mole.group.visible && this.mole.phase === 'warning';
@@ -1402,6 +1449,7 @@ export class GameEngine {
     this.lastMotionMagnitude = undefined;
     this.draggedRacer = null;
     if (this.mole) this.resetMole();
+    this.randomizeRocks();
     this.cameraY = 0;
     if (this.camera) this.camera.position.y = 0;
     const activeRacers = this.racers.filter((racer) => racer.active);
@@ -1476,21 +1524,31 @@ export class GameEngine {
                 triggerHaptic(this.hapticEnabled, 'basicWeak', 18);
               }
             }
-            const moleHit = handleA === this.mole.collider.handle ? racerB : handleB === this.mole.collider.handle ? racerA : undefined;
-            if (started && moleHit !== undefined) {
-              const racer = this.racers[moleHit];
-              const direction = Math.sign(racer.body.translation().x - this.mole.body.translation().x) || 1;
+            const obstacle = handleA === this.mole.collider.handle || handleB === this.mole.collider.handle
+              ? this.mole
+              : this.rocks.find((rock) => handleA === rock.collider.handle || handleB === rock.collider.handle);
+            const obstacleHit = handleA === obstacle?.collider.handle ? racerB : handleB === obstacle?.collider.handle ? racerA : undefined;
+            if (started && obstacleHit !== undefined) {
+              const racer = this.racers[obstacleHit];
+              const direction = Math.sign(racer.body.translation().x - obstacle.body.translation().x) || 1;
               const mass = racer.body.mass();
-              while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
-              if (!racer.isFlipping) this.beginFlip(racer);
-              racer.knockbackUntil = this.raceElapsed + 0.65;
               racer.expressionUntil = this.raceElapsed + 0.7;
               this.setExpression(racer.visual, 'hit');
-              racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
-              this.mole.hit = 0.18;
-              gsap.fromTo(this.canvas, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
-              this.tone(120, 0.16);
-              triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
+              if (obstacle === this.mole) {
+                while (racer.anchors.length > 1) this.detachPad(racer, racer.anchors[0]);
+                if (!racer.isFlipping) this.beginFlip(racer);
+                racer.knockbackUntil = this.raceElapsed + 0.65;
+                racer.body.applyImpulse({ x: direction * mass * 380, y: mass * 440, z: 0 }, true);
+                this.mole.hit = 0.18;
+                gsap.fromTo(this.canvas, { x: -direction * 9, scale: 1.015 }, { x: 0, scale: 1, duration: 0.07, repeat: 3, yoyo: true, clearProps: 'x,scale' });
+                this.tone(120, 0.16);
+                triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
+              } else {
+                racer.gripElapsed += 0.12;
+                racer.body.applyImpulse({ x: direction * mass * 120, y: mass * 100, z: 0 }, true);
+                this.tone(155, 0.08);
+                triggerHaptic(this.hapticEnabled, 'basicMedium', 25);
+              }
             }
           });
           impacted.forEach((index) => {
