@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useToast } from '@toss/tds-mobile';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '../game/engine';
+import { triggerHaptic } from '../utils/feedback';
 
 export interface ParticipantState {
   name: string;
   characterKey: CharacterKey;
-  enabled: boolean;
 }
 
 interface SetupScreenProps {
@@ -22,10 +23,11 @@ interface SetupScreenProps {
   characterPreviews: CharacterPreviewMap;
 }
 
-const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'turtle'];
+const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'turtle', 'dog', 'fox', 'panda', 'pig', 'hamster'];
 const CARD_CLASSES = ['setup-card--yellow', 'setup-card--rose', 'setup-card--indigo', 'setup-card--sky'];
 const QUESTION_MAX_LENGTH = 30;
 const PARTICIPANT_MAX_LENGTH = 12;
+const isParticipantActive = (participant: ParticipantState, index: number) => index < 2 || participant.name.trim().length > 0;
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
   question,
@@ -41,7 +43,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   onSubmit,
   characterPreviews
 }) => {
-  const [toastMessage, setToastMessage] = useState('');
+  const { openToast } = useToast();
+
+  const showValidationToast = (message: string) => {
+    openToast(message, {
+      type: 'bottom',
+      duration: 3000,
+      higherThanCTA: true,
+    });
+  };
 
   const handleNameChange = (index: number, newName: string) => {
     const limitedName = newName.slice(0, PARTICIPANT_MAX_LENGTH);
@@ -49,7 +59,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       const next = [...prev];
       const usedByOthers = new Set(
         next
-          .filter((_, participantIndex) => participantIndex !== index)
+          .filter((participant, participantIndex) => participantIndex !== index && isParticipantActive(participant, participantIndex))
           .map((participant) => participant.characterKey)
       );
       const characterKey = limitedName.trim() && usedByOthers.has(next[index].characterKey)
@@ -61,12 +71,13 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   };
 
   const handleStepCharacter = (index: number, direction: number) => {
+    triggerHaptic(hapticEnabled, 'tickWeak', 15);
     setParticipants((prev) => {
       const next = [...prev];
       const currentKey = next[index].characterKey;
       const usedByOthers = new Set(
         next
-          .filter((_, participantIndex) => participantIndex !== index)
+          .filter((participant, participantIndex) => participantIndex !== index && isParticipantActive(participant, participantIndex))
           .map((participant) => participant.characterKey)
       );
       const availableKeys = CHARACTER_KEYS.filter((key) => key === currentKey || !usedByOthers.has(key));
@@ -78,24 +89,17 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     });
   };
 
-  const handleSlotToggle = (index: number) => {
-    setParticipants((prev) => prev.map((participant, participantIndex) => participantIndex === index
-      ? { ...participant, enabled: !participant.enabled, name: participant.enabled ? '' : participant.name }
-      : participant));
-  };
-
-  const allEnabledParticipantsNamed = participants.every((participant) => !participant.enabled || participant.name.trim());
-  const isValid = question.trim().length > 0 && allEnabledParticipantsNamed;
+  const isValid = question.trim().length > 0 && participants[0].name.trim().length > 0 && participants[1].name.trim().length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!question.trim()) {
-      setToastMessage('고민 제목을 적어주세요.');
+      showValidationToast('고민 제목을 적어주세요.');
       return;
     }
 
-    if (!allEnabledParticipantsNamed) {
-      setToastMessage('선택지를 모두 적어주세요.');
+    if (!participants[0].name.trim() || !participants[1].name.trim()) {
+      showValidationToast('선택지 2개를 모두 적어주세요.');
       return;
     }
 
@@ -133,35 +137,27 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           {participants.map((item, i) => {
             const charData = CHARACTER_DATA[item.characterKey];
             const isOptional = i >= 2;
-            const isDisabled = isOptional && !item.enabled;
+            const isDisabled = isOptional && !item.name.trim();
             const placeholder = isOptional ? `${i + 1}번째 선택지 (선택)` : `${i + 1}번째 선택지`;
 
             return (
               <div
                 key={i}
                 className={`participant setup-card ${CARD_CLASSES[i]} ${isDisabled ? 'is-disabled' : ''}`}
-                onClick={(event) => {
-                  const target = event.target as HTMLElement;
-                  if (isOptional && !target.closest('button') && (isDisabled || !target.closest('input'))) {
-                    handleSlotToggle(i);
-                  }
-                }}
               >
                 <input
                   name="name"
                   maxLength={PARTICIPANT_MAX_LENGTH}
                   placeholder={placeholder}
                   value={item.name}
-                  readOnly={isDisabled}
-                  aria-disabled={isDisabled}
                   onChange={(e) => handleNameChange(i, e.target.value)}
                 />
                 <div className="mini-character-picker" aria-disabled={isDisabled}>
                   <button
                     className="character-step"
                     type="button"
-                    onClick={() => isDisabled ? handleSlotToggle(i) : handleStepCharacter(i, -1)}
-                    aria-disabled={isDisabled}
+                    onClick={() => handleStepCharacter(i, -1)}
+                    disabled={isDisabled}
                     aria-label="이전 캐릭터"
                   >
                     ‹
@@ -177,8 +173,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   <button
                     className="character-step"
                     type="button"
-                    onClick={() => isDisabled ? handleSlotToggle(i) : handleStepCharacter(i, 1)}
-                    aria-disabled={isDisabled}
+                    onClick={() => handleStepCharacter(i, 1)}
+                    disabled={isDisabled}
                     aria-label="다음 캐릭터"
                   >
                     ›
@@ -226,11 +222,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           </button>
         </footer>
       </form>
-      {toastMessage && (
-        <div className="setup-toast" role="alert" onAnimationEnd={() => setToastMessage('')}>
-          {toastMessage}
-        </div>
-      )}
     </section>
   );
 };

@@ -71,6 +71,9 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   if (!isOpen) return null;
 
   const charData = CHARACTER_DATA[winnerCharKey] || CHARACTER_DATA['bear'];
+  const activeRankings = rankings
+    .filter((item) => item.name.trim().length > 0)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
 
   return (
     <section id="result" className="overlay" aria-labelledby="result-title">
@@ -135,11 +138,17 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
         </div>
 
         <ol id="result-list">
-          {rankings.map((item) => (
+          {activeRankings.map((item) => (
             <li key={item.rank}>
               <span className="rank-badge">{item.rank}등</span>
               <span className="rank-name">{item.name}</span>
-              <span className="rank-character">({item.charName})</span>
+              <span className="rank-character">
+                {characterPreviews[item.key] ? (
+                  <img src={characterPreviews[item.key]} alt={`${item.charName} 캐릭터`} />
+                ) : (
+                  <span aria-label={`${item.charName} 캐릭터`} role="img">{CHARACTER_DATA[item.key].icon}</span>
+                )}
+              </span>
             </li>
           ))}
         </ol>

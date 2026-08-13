@@ -341,8 +341,8 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   drawThemeMap(nightCtx, nightColors, true);
 
   const textureLoader = new THREE.TextureLoader();
-  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course.webp', import.meta.url).href);
-  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night.webp', import.meta.url).href);
+  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-long.png', import.meta.url).href);
+  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night-long.png', import.meta.url).href);
   [dayCourseTexture, nightCourseTexture].forEach((texture) => {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
@@ -377,22 +377,9 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
     targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
     // Keep the label in the restricted area below the line so it does not
     // overlap the characters waiting above the start line.
-    targetContext.strokeText('출발', width / 2, startLineY + 22);
+    targetContext.strokeText('출발선', width / 2, startLineY + 22);
     targetContext.fillStyle = textColor;
-    targetContext.fillText('출발', width / 2, startLineY + 22);
-
-    const finishY = floorY;
-    const tile = 18;
-    for (let x = 0; x < width; x += tile) {
-      targetContext.fillStyle = Math.floor(x / tile) % 2 ? '#ffffff' : lineColor;
-      targetContext.fillRect(x, finishY - 8, tile, 8);
-      targetContext.fillStyle = Math.floor(x / tile) % 2 ? lineColor : '#ffffff';
-      targetContext.fillRect(x, finishY, tile, 8);
-    }
-    targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
-    targetContext.strokeText('도착', width / 2, finishY - 25);
-    targetContext.fillStyle = textColor;
-    targetContext.fillText('도착', width / 2, finishY - 25);
+    targetContext.fillText('출발선', width / 2, startLineY + 22);
     targetContext.restore();
   };
 
@@ -424,5 +411,16 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkers.renderOrder = -99;
   nightMarkers.visible = activeTheme === 'night';
 
-  return { wall, markers, nightMarkers, dayCourseTexture, nightCourseTexture };
+  const finishTexture = textureLoader.load(new URL('../assets/backgrounds/finish-line.png', import.meta.url).href);
+  finishTexture.colorSpace = THREE.SRGBColorSpace;
+  finishTexture.minFilter = THREE.LinearFilter;
+  finishTexture.magFilter = THREE.LinearFilter;
+  const finishLineHeight = width * (74 / 481);
+  const finishLine = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, finishLineHeight),
+    new THREE.MeshBasicMaterial({ map: finishTexture, transparent: true, depthWrite: false })
+  );
+  finishLine.position.set(0, screenToWorldY(floorY), wallZ + 0.2);
+
+  return { wall, markers, nightMarkers, finishLine, dayCourseTexture, nightCourseTexture };
 }
