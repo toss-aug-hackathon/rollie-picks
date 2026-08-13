@@ -195,7 +195,6 @@ git commit -m "feat: prototype sample design on setup screen"
 **Files:**
 - Verify: `code/index.html`
 - Verify: `code/game.js`
-- Verify: `code/assets/characters/*.png`
 
 **Interfaces:**
 - Consumes: The setup DOM contract produced by Task 1 and the existing `syncCharacterOptions()`, `stepCharacter()`, and form submit listener in `code/game.js`.
