@@ -340,11 +340,14 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   drawThemeMap(ctx, colors, false);
   drawThemeMap(nightCtx, nightColors, true);
 
-  const dayCourseTexture = new THREE.CanvasTexture(canvas);
-  dayCourseTexture.colorSpace = THREE.SRGBColorSpace;
-
-  const nightCourseTexture = new THREE.CanvasTexture(nightCanvas);
-  nightCourseTexture.colorSpace = THREE.SRGBColorSpace;
+  const textureLoader = new THREE.TextureLoader();
+  const dayCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course.webp', import.meta.url).href);
+  const nightCourseTexture = textureLoader.load(new URL('../assets/backgrounds/rolling-course-night.webp', import.meta.url).href);
+  [dayCourseTexture, nightCourseTexture].forEach((texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  });
 
   const wall = new THREE.Mesh(
     new THREE.PlaneGeometry(width, canvas.height),
@@ -357,27 +360,30 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   markerCanvas.height = courseHeight;
   const markerContext = markerCanvas.getContext('2d')!;
 
-  const markerX = width / 2 - 130;
-  const markerWidth = 260;
+  const drawStartLine = (targetContext: CanvasRenderingContext2D, lineColor: string, textColor: string) => {
+    targetContext.save();
+    targetContext.lineWidth = 5;
+    targetContext.strokeStyle = lineColor;
+    targetContext.setLineDash([16, 10]);
+    targetContext.beginPath();
+    targetContext.moveTo(22, startLineY);
+    targetContext.lineTo(width - 22, startLineY);
+    targetContext.stroke();
+    targetContext.setLineDash([]);
+    targetContext.font = '900 17px "Noto Sans KR", Pretendard, sans-serif';
+    targetContext.textAlign = 'center';
+    targetContext.textBaseline = 'middle';
+    targetContext.lineWidth = 5;
+    targetContext.strokeStyle = activeTheme === 'night' ? '#111827' : '#ffffff';
+    // Keep the label in the restricted area below the line so it does not
+    // overlap the characters waiting above the start line.
+    targetContext.strokeText('출발선', width / 2, startLineY + 22);
+    targetContext.fillStyle = textColor;
+    targetContext.fillText('출발선', width / 2, startLineY + 22);
+    targetContext.restore();
+  };
 
-  markerContext.save();
-  markerContext.shadowColor = 'rgba(0, 0, 0, 0.15)';
-  markerContext.shadowBlur = 8;
-  markerContext.fillStyle = '#ffffff';
-  markerContext.strokeStyle = '#e07653';
-  markerContext.lineWidth = 4;
-  markerContext.beginPath();
-  markerContext.roundRect(width / 2 - 110, startLineY - 26, 220, 42, 10);
-  markerContext.fill();
-  markerContext.stroke();
-
-  markerContext.fillStyle = colors.text;
-  markerContext.font = '900 18px "Noto Sans KR", Pretendard, sans-serif';
-  markerContext.textAlign = 'center';
-  markerContext.textBaseline = 'middle';
-  markerContext.fillText('🏁 데굴이 출발선', width / 2, startLineY - 4);
-
-  markerContext.restore();
+  drawStartLine(markerContext, '#315444', colors.text);
 
   const markerTexture = new THREE.CanvasTexture(markerCanvas);
   markerTexture.colorSpace = THREE.SRGBColorSpace;
@@ -393,6 +399,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkerCanvas.width = width;
   nightMarkerCanvas.height = courseHeight;
   const nightMarkerContext = nightMarkerCanvas.getContext('2d')!;
+  drawStartLine(nightMarkerContext, '#d9efff', '#d9efff');
 
   const nightMarkerTexture = new THREE.CanvasTexture(nightMarkerCanvas);
   nightMarkerTexture.colorSpace = THREE.SRGBColorSpace;
