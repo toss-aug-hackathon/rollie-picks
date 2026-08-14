@@ -68,13 +68,19 @@ export interface RacerInfo {
   characterKey: CharacterKey;
 }
 
+export interface LiveRankingItem {
+  rank: number;
+  name: string;
+  key: CharacterKey;
+}
+
 export interface GameEngineOptions {
   canvas: HTMLCanvasElement;
   onTimerUpdate: (timeStr: string) => void;
   onStatusUpdate: (status: string) => void;
   onProgressUpdate?: (progress: number) => void;
   onCountdownUpdate: (countStr: string, visible: boolean) => void;
-  onPlayerLabelsUpdate: (labels: any[]) => void;
+  onPlayerLabelsUpdate: (rankings: LiveRankingItem[]) => void;
   onFinish: (winnerName: string, winnerChar: CharacterKey, winnerSpeech: string, rankings: any[]) => void;
   onCharacterPreviewsReady?: (previews: CharacterPreviewMap) => void;
 }
@@ -130,6 +136,7 @@ export class GameEngine {
   private cameraY = 0;
   private raceElapsed = 0;
   private raceStartedAt = 0;
+  private liveRankingSignature = '';
   private soundEnabled = true;
   private hapticEnabled = true;
   private audioContext: AudioContext | undefined;
@@ -1195,6 +1202,21 @@ export class GameEngine {
     return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
   }
 
+  private updateLiveRankings(active: any[]) {
+    const rankings: LiveRankingItem[] = active
+      .slice()
+      .sort((a, b) => a.body.translation().y - b.body.translation().y)
+      .map((racer, index) => ({
+        rank: index + 1,
+        name: racer.name || CHARACTER_DATA[racer.characterKey as CharacterKey].name,
+        key: racer.characterKey as CharacterKey
+      }));
+    const signature = rankings.map((item) => `${item.key}:${item.name}`).join('|');
+    if (signature === this.liveRankingSignature) return;
+    this.liveRankingSignature = signature;
+    this.options.onPlayerLabelsUpdate(rankings);
+  }
+
   private syncRace(dt: number) {
     let lowest = Infinity;
     const raceActive = this.running && !this.paused;
@@ -1299,6 +1321,7 @@ export class GameEngine {
     });
 
     if (raceActive) {
+      this.updateLiveRankings(active);
       const target = Math.min(0, lowest + 220);
       this.cameraY += (target - this.cameraY) * Math.min(1, dt * 3.2);
       this.camera.position.y = this.cameraY;
@@ -1668,6 +1691,8 @@ export class GameEngine {
     this.raceStartedAt = performance.now();
     this.racers.filter((racer) => racer.active).forEach((racer) => this.setExpression(racer.visual));
     this.running = true;
+    this.liveRankingSignature = '';
+    this.updateLiveRankings(this.racers.filter((racer) => racer.active));
     this.startBackgroundMusic();
     this.options.onStatusUpdate('달리는 중');
     this.options.onProgressUpdate?.(0);
@@ -1705,6 +1730,8 @@ export class GameEngine {
     this.paused = false;
     this.finished = false;
     this.raceElapsed = 0;
+    this.liveRankingSignature = '';
+    this.options.onPlayerLabelsUpdate([]);
     this.draggedRacer = null;
     if (this.mole) this.resetMole();
     this.randomizeRocks();

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CharacterKey, CharacterPreviewMap, GameEngine, GameEngineOptions, ThemeMode } from '../game/engine';
+import { CharacterKey, CharacterPreviewMap, GameEngine, GameEngineOptions, LiveRankingItem, ThemeMode } from '../game/engine';
 
 interface GameCanvasProps {
   onEngineReady: (engine: GameEngine) => void;
@@ -8,6 +8,7 @@ interface GameCanvasProps {
   onTimerUpdate: (time: string) => void;
   onStatusUpdate: (status: string) => void;
   onProgressUpdate: (progress: number) => void;
+  onLiveRankingsUpdate: (rankings: LiveRankingItem[]) => void;
   onCountdownUpdate: (count: string, visible: boolean) => void;
   onFinish: (winnerName: string, winnerChar: any, winnerSpeech: string, rankings: any[]) => void;
   participants: Array<{ name: string; characterKey: CharacterKey }>;
@@ -24,6 +25,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onTimerUpdate,
   onStatusUpdate,
   onProgressUpdate,
+  onLiveRankingsUpdate,
   onCountdownUpdate,
   onFinish,
   participants,
@@ -50,7 +52,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       onStatusUpdate,
       onProgressUpdate,
       onCountdownUpdate,
-      onPlayerLabelsUpdate: () => {},
+      onPlayerLabelsUpdate: onLiveRankingsUpdate,
       onFinish,
       onCharacterPreviewsReady
     };
