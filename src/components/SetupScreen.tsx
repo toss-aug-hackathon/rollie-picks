@@ -125,11 +125,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </header>
 
         <section className="question-field" aria-labelledby="question-label">
-          <label id="question-label" htmlFor="decision-question">Q. 고민은 뭐야?</label>
+          <label id="question-label" htmlFor="decision-question">Q. 무엇을 골라줄까?</label>
           <input
             id="decision-question"
             maxLength={QUESTION_MAX_LENGTH}
-            placeholder="무엇을 골라줄까?"
+            placeholder="골라줄 내용을 적어주세요"
             value={question}
             onChange={(e) => setQuestion(e.target.value.slice(0, QUESTION_MAX_LENGTH))}
           />
