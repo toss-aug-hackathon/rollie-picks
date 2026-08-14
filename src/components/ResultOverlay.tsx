@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA } from '../game/engine';
 import tiredBear from '../assets/characters/tired/bear.webp';
 import tiredRabbit from '../assets/characters/tired/rabbit.webp';
@@ -75,6 +75,22 @@ const CRYING_CHARACTER_IMAGES: Partial<Record<CharacterKey, string>> = {
   hamster: cryingHamster
 };
 
+const REPLAY_CHARACTER_KEYS = Object.keys(TIRED_CHARACTER_IMAGES) as CharacterKey[];
+
+const pickReplayCharacters = (count: number, previous: CharacterKey[]) => {
+  const shuffled = [...REPLAY_CHARACTER_KEYS];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+
+  const selected = shuffled.slice(0, Math.min(Math.max(count, 1), shuffled.length));
+  if (selected.length > 1 && selected.every((key, index) => key === previous[index])) {
+    [selected[0], selected[1]] = [selected[1], selected[0]];
+  }
+  return selected;
+};
+
 export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   isOpen,
   winnerName,
@@ -88,11 +104,17 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   const [cheerMessage] = useState(() => COMMENTS[Math.floor(Math.random() * COMMENTS.length)]);
   const [showReplayConfirm, setShowReplayConfirm] = useState(false);
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+  const [replayCharacterKeys, setReplayCharacterKeys] = useState<CharacterKey[]>(['bear', 'rabbit']);
+  const previousReplayCharacterKeys = useRef<CharacterKey[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
-    rankings.forEach((item) => {
-      [TIRED_CHARACTER_IMAGES[item.key], CRYING_CHARACTER_IMAGES[item.key]].forEach((src) => {
+    const nextCharacterKeys = pickReplayCharacters(rankings.length, previousReplayCharacterKeys.current);
+    previousReplayCharacterKeys.current = nextCharacterKeys;
+    setReplayCharacterKeys(nextCharacterKeys);
+
+    nextCharacterKeys.forEach((key) => {
+      [TIRED_CHARACTER_IMAGES[key], CRYING_CHARACTER_IMAGES[key]].forEach((src) => {
         if (!src) return;
         const image = new Image();
         image.src = src;
@@ -117,12 +139,12 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
         {showReplayConfirm ? (
           <div className="replay-confirm">
             <h2 id="result-title">{showFinalConfirm ? '진짜?' : <>또 다시<br />굴러오라고...?</>}</h2>
-            <div className={`replay-pile ${showFinalConfirm ? 'is-crying' : ''}`} data-count={rankings.length} aria-label={showFinalConfirm ? '울면서 서 있는 데굴이들' : '지쳐 쓰러진 데굴이들'}>
-              {rankings.map((item, index) => (
-                <div className="pile-character" key={item.rank}>
+            <div className={`replay-pile ${showFinalConfirm ? 'is-crying' : ''}`} data-count={replayCharacterKeys.length} aria-label={showFinalConfirm ? '울면서 서 있는 데굴이들' : '지쳐 쓰러진 데굴이들'}>
+              {replayCharacterKeys.map((key, index) => (
+                <div className="pile-character" key={key}>
                   <img
-                    src={(showFinalConfirm ? CRYING_CHARACTER_IMAGES[item.key] : TIRED_CHARACTER_IMAGES[item.key]) || characterPreviews[item.key]}
-                    alt={`${showFinalConfirm ? '우는' : '지친'} ${item.charName}`}
+                    src={(showFinalConfirm ? CRYING_CHARACTER_IMAGES[key] : TIRED_CHARACTER_IMAGES[key]) || characterPreviews[key]}
+                    alt={`${showFinalConfirm ? '우는' : '지친'} ${CHARACTER_DATA[key].name}`}
                   />
                   {!showFinalConfirm && index === 1 && <span className="pile-sweat" aria-hidden="true">💧</span>}
                 </div>
