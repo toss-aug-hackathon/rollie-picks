@@ -432,7 +432,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   finishTexture.colorSpace = THREE.SRGBColorSpace;
   finishTexture.minFilter = THREE.LinearFilter;
   finishTexture.magFilter = THREE.LinearFilter;
-  const finishLineWidth = width * 1.04;
+  const finishLineWidth = width * 1.32;
   const finishLineHeight = finishLineWidth / FINISH_LINE_ASPECT_RATIO;
   const finishLine = new THREE.Mesh(
     new THREE.PlaneGeometry(finishLineWidth, finishLineHeight),
