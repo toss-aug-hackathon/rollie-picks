@@ -9,12 +9,14 @@ interface HUDProps {
 }
 
 export const HUD: React.FC<HUDProps> = ({ question, status, progress, timer, onOpenMenu }) => {
-  const questionFontSize = Math.min(22, Math.max(13, 320 / Math.max(question.length, 1)));
+  const displayQuestion = question || '데굴이가 골라줘';
+  const questionLength = Array.from(displayQuestion).length;
+  const questionFontSize = Math.min(22, Math.max(12, 236 / Math.max(questionLength, 1)));
 
   return (
     <div id="hud">
       <div className="hud-topline">
-        <span id="race-question" style={{ fontSize: `${questionFontSize}px` }}>{question || '데굴이가 골라줘'}</span>
+        <span id="race-question" title={displayQuestion} style={{ fontSize: `${questionFontSize}px` }}>{displayQuestion}</span>
         <button id="menu-btn" type="button" aria-label="메뉴 열기" onClick={onOpenMenu}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6" />
