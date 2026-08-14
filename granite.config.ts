@@ -31,10 +31,6 @@ export default defineConfig({
     primaryColor: '#44374B',
     icon: 'https://static.toss.im/appsintoss/70341/00681aaf-e2f3-4a09-9a01-ddebbdc4f76d.png',
   },
-  navigationBar: {
-    withBackButton: true,
-    withHomeButton: false,
-  },
   webViewProps: {
     type: 'partner',
     bounces: false,
