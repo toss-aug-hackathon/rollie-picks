@@ -26,7 +26,7 @@ interface SetupScreenProps {
 
 const CHARACTER_KEYS: CharacterKey[] = ['bear', 'rabbit', 'cat', 'duck', 'turtle', 'dog', 'fox', 'panda', 'pig', 'hamster'];
 const CARD_CLASSES = ['setup-card--yellow', 'setup-card--rose', 'setup-card--indigo', 'setup-card--sky'];
-const QUESTION_MAX_LENGTH = 30;
+const QUESTION_MAX_LENGTH = 20;
 const PARTICIPANT_MAX_LENGTH = 12;
 const isParticipantActive = (participant: ParticipantState, index: number) => index < 2 || participant.name.trim().length > 0;
 
@@ -219,7 +219,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
 
         <footer className="setup-footer">
-          <button id="setup-submit" className={`primary ${!isValid || !mapReady ? 'is-incomplete' : ''}`} type="submit" disabled={!mapReady}>
+          <button
+            id="setup-submit"
+            className={`primary ${!isValid || !mapReady ? 'is-incomplete' : ''}`}
+            type="submit"
+            disabled={!mapReady || !isValid}
+          >
             {mapReady ? '데굴이들에게 골라달라고 하기' : '배경 준비 중...'}
           </button>
         </footer>

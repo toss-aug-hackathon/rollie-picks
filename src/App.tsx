@@ -1,11 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getAnonymousKey, setDeviceOrientation, setScreenAwakeMode, Storage } from '@apps-in-toss/web-framework';
+import {
+  getAnonymousKey,
+  setDeviceOrientation,
+  setIosSwipeGestureEnabled,
+  setScreenAwakeMode,
+  Storage,
+} from '@apps-in-toss/web-framework';
 import { GameCanvas } from './components/GameCanvas';
 import { SetupScreen, ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
 import { PauseModal } from './components/PauseModal';
 import { ResultOverlay, RankingItem } from './components/ResultOverlay';
-import { CharacterPreviewMap, GameEngine, CharacterKey, ThemeMode } from './game/engine';
+import { CharacterPreviewMap, GameEngine, CharacterKey, LiveRankingItem, ThemeMode } from './game/engine';
 
 const APP_STATE_STORAGE_KEY = 'degul-pick:app-state:v1';
 const ANONYMOUS_KEY_STORAGE_KEY = 'degul-pick:anonymous-key';
@@ -34,6 +40,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     void setDeviceOrientation({ type: 'portrait' }).catch(() => {});
+    void setIosSwipeGestureEnabled({ isEnabled: false }).catch(() => {});
+    return () => {
+      void setIosSwipeGestureEnabled({ isEnabled: true }).catch(() => {});
+    };
   }, []);
 
   useEffect(() => {
@@ -99,6 +109,7 @@ export const App: React.FC = () => {
   const [timerStr, setTimerStr] = useState('00:00.00');
   const [statusStr, setStatusStr] = useState('준비');
   const [progress, setProgress] = useState(0);
+  const [liveRankings, setLiveRankings] = useState<LiveRankingItem[]>([]);
   const [countdownStr, setCountdownStr] = useState('3');
   const [countdownVisible, setCountdownVisible] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
@@ -211,6 +222,20 @@ export const App: React.FC = () => {
         onOpenMenu={handleOpenMenu}
       />
 
+      {activeScreen === 'playing' && !placementMode && liveRankings.length > 0 && (
+        <aside id="live-rankings" aria-label="실시간 순위" aria-live="polite">
+          <strong>실시간 순위</strong>
+          <ol>
+            {liveRankings.map((item) => (
+              <li key={item.key}>
+                <b>{item.rank}</b>
+                <span>{item.name}</span>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      )}
+
       <GameCanvas
         onEngineReady={handleEngineReady}
         onEngineError={() => {
@@ -221,6 +246,7 @@ export const App: React.FC = () => {
         onTimerUpdate={setTimerStr}
         onStatusUpdate={setStatusStr}
         onProgressUpdate={setProgress}
+        onLiveRankingsUpdate={setLiveRankings}
         onCountdownUpdate={(count, visible) => {
           setCountdownStr(count);
           setCountdownVisible(visible);

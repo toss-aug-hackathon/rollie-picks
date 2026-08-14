@@ -34,6 +34,21 @@ const RACER_TOP_CLEARANCE = 50;
 const DRAG_VISUAL_Z_OFFSET = 40;
 const PLACEMENT_SETTLE_DURATION = 0.22;
 const FINISH_RESULT_DELAY = 800;
+const MASTER_VOLUME = 0.96;
+const SOUND_EFFECT_VOLUME = 0.22;
+const MUSIC_VOLUME = 0.86;
+const MUSIC_STEP_DURATION = 0.24;
+const MUSIC_SCHEDULE_AHEAD = 0.9;
+const MUSIC_MELODY = [
+  72, 76, 79, null, 74, 77, 81, 79,
+  71, 74, 79, 83, 79, 77, 74, null,
+  76, 79, 84, 83, 77, 81, 84, 81,
+  74, 79, 83, 86, 84, 81, 79, 76,
+];
+const MUSIC_CHORDS = [
+  [48, 4], [53, 4], [55, 4], [52, 3],
+  [50, 3], [55, 4], [57, 3], [52, 3],
+] as const;
 
 const PLACEMENT_PARTS = [
   { x: 0, y: 25, rx: 22, ry: 20 },
@@ -53,13 +68,19 @@ export interface RacerInfo {
   characterKey: CharacterKey;
 }
 
+export interface LiveRankingItem {
+  rank: number;
+  name: string;
+  key: CharacterKey;
+}
+
 export interface GameEngineOptions {
   canvas: HTMLCanvasElement;
   onTimerUpdate: (timeStr: string) => void;
   onStatusUpdate: (status: string) => void;
   onProgressUpdate?: (progress: number) => void;
   onCountdownUpdate: (countStr: string, visible: boolean) => void;
-  onPlayerLabelsUpdate: (labels: any[]) => void;
+  onPlayerLabelsUpdate: (rankings: LiveRankingItem[]) => void;
   onFinish: (winnerName: string, winnerChar: CharacterKey, winnerSpeech: string, rankings: any[]) => void;
   onCharacterPreviewsReady?: (previews: CharacterPreviewMap) => void;
 }
@@ -115,9 +136,17 @@ export class GameEngine {
   private cameraY = 0;
   private raceElapsed = 0;
   private raceStartedAt = 0;
+  private liveRankingSignature = '';
   private soundEnabled = true;
   private hapticEnabled = true;
   private audioContext: AudioContext | undefined;
+  private audioMasterGain: GainNode | undefined;
+  private effectsGain: GainNode | undefined;
+  private musicGain: GainNode | undefined;
+  private musicTimerId: number | null = null;
+  private musicSources = new Set<OscillatorNode>();
+  private musicStep = 0;
+  private musicNextStartTime = 0;
   private resumeAudioAfterVisibility = false;
   private themeMode: ThemeMode = 'day';
   private activeTheme: 'day' | 'night' = 'day';
@@ -1134,8 +1163,9 @@ export class GameEngine {
   private finishRace(winner: any) {
     if (this.finished) return;
     this.finished = true;
+    this.stopBackgroundMusic(0.35);
     this.setExpression(winner.visual, 'result');
-    this.tone(1040, 0.24);
+    this.playFinishFanfare();
     triggerHaptic(this.hapticEnabled, 'confetti', [55, 30, 80]);
     const active = this.racers.filter((racer) => racer.active);
     const rankings = active
@@ -1170,6 +1200,21 @@ export class GameEngine {
     const leader = Math.min(...progressY);
     const last = Math.max(...progressY);
     return progressY.length > 1 && last - leader >= CATCH_UP_GAP ? progressY.lastIndexOf(last) : -1;
+  }
+
+  private updateLiveRankings(active: any[]) {
+    const rankings: LiveRankingItem[] = active
+      .slice()
+      .sort((a, b) => a.body.translation().y - b.body.translation().y)
+      .map((racer, index) => ({
+        rank: index + 1,
+        name: racer.name || CHARACTER_DATA[racer.characterKey as CharacterKey].name,
+        key: racer.characterKey as CharacterKey
+      }));
+    const signature = rankings.map((item) => `${item.key}:${item.name}`).join('|');
+    if (signature === this.liveRankingSignature) return;
+    this.liveRankingSignature = signature;
+    this.options.onPlayerLabelsUpdate(rankings);
   }
 
   private syncRace(dt: number) {
@@ -1276,6 +1321,7 @@ export class GameEngine {
     });
 
     if (raceActive) {
+      this.updateLiveRankings(active);
       const target = Math.min(0, lowest + 220);
       this.cameraY += (target - this.cameraY) * Math.min(1, dt * 3.2);
       this.camera.position.y = this.cameraY;
@@ -1299,6 +1345,7 @@ export class GameEngine {
     if (!this.soundEnabled || document.hidden) return false;
     try {
       this.audioContext ||= new AudioContext();
+      this.setupAudioGraph();
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
@@ -1306,6 +1353,183 @@ export class GameEngine {
     } catch {
       return false;
     }
+  }
+
+  private setupAudioGraph() {
+    const audioContext = this.audioContext;
+    if (!audioContext || audioContext.state === 'closed' || this.audioMasterGain) return;
+
+    const masterGain = audioContext.createGain();
+    const compressor = audioContext.createDynamicsCompressor();
+    const effectsGain = audioContext.createGain();
+    const musicGain = audioContext.createGain();
+
+    masterGain.gain.value = MASTER_VOLUME;
+    compressor.threshold.value = -12;
+    compressor.knee.value = 18;
+    compressor.ratio.value = 4;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.25;
+    effectsGain.gain.value = 1;
+    musicGain.gain.value = 0.0001;
+
+    effectsGain.connect(masterGain);
+    musicGain.connect(masterGain);
+    masterGain.connect(compressor).connect(audioContext.destination);
+    this.audioMasterGain = masterGain;
+    this.effectsGain = effectsGain;
+    this.musicGain = musicGain;
+  }
+
+  private midiToFrequency(note: number) {
+    return 440 * 2 ** ((note - 69) / 12);
+  }
+
+  private scheduleMusicNote(
+    note: number,
+    startTime: number,
+    duration: number,
+    volume: number,
+    type: OscillatorType
+  ) {
+    const audioContext = this.audioContext;
+    const musicGain = this.musicGain;
+    if (!audioContext || !musicGain || audioContext.state !== 'running') return;
+
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    const releaseTime = startTime + duration;
+
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(this.midiToFrequency(note), startTime);
+    envelope.gain.setValueAtTime(0.0001, startTime);
+    envelope.gain.exponentialRampToValueAtTime(volume, startTime + 0.018);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, releaseTime);
+    oscillator.connect(envelope).connect(musicGain);
+    oscillator.addEventListener('ended', () => {
+      this.musicSources.delete(oscillator);
+      oscillator.disconnect();
+      envelope.disconnect();
+    }, { once: true });
+    this.musicSources.add(oscillator);
+    oscillator.start(startTime);
+    oscillator.stop(releaseTime + 0.02);
+  }
+
+  private scheduleMusicPercussion(startTime: number, type: 'kick' | 'click') {
+    const audioContext = this.audioContext;
+    const musicGain = this.musicGain;
+    if (!audioContext || !musicGain || audioContext.state !== 'running') return;
+
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    const isKick = type === 'kick';
+    const duration = isKick ? 0.11 : 0.045;
+
+    oscillator.type = isKick ? 'sine' : 'triangle';
+    oscillator.frequency.setValueAtTime(isKick ? 130 : 1050, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(isKick ? 48 : 620, startTime + duration);
+    envelope.gain.setValueAtTime(isKick ? 0.09 : 0.04, startTime);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    oscillator.connect(envelope).connect(musicGain);
+    oscillator.addEventListener('ended', () => {
+      this.musicSources.delete(oscillator);
+      oscillator.disconnect();
+      envelope.disconnect();
+    }, { once: true });
+    this.musicSources.add(oscillator);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.02);
+  }
+
+  private scheduleBackgroundMusic = () => {
+    const audioContext = this.audioContext;
+    if (!audioContext
+      || audioContext.state !== 'running'
+      || !this.soundEnabled
+      || !this.running
+      || this.paused
+      || this.finished) return;
+
+    while (this.musicNextStartTime < audioContext.currentTime + MUSIC_SCHEDULE_AHEAD) {
+      const patternStep = this.musicStep % MUSIC_MELODY.length;
+      const startTime = this.musicNextStartTime;
+      const melodyNote = MUSIC_MELODY[patternStep];
+      const [chordRoot, chordThird] = MUSIC_CHORDS[Math.floor(patternStep / 4)];
+      if (melodyNote !== null) {
+        const melodyDuration = patternStep % 8 === 6 ? MUSIC_STEP_DURATION * 1.55 : MUSIC_STEP_DURATION * 0.72;
+        this.scheduleMusicNote(melodyNote, startTime, melodyDuration, 0.075, 'triangle');
+      }
+
+      if (patternStep % 4 === 0) {
+        const chordDuration = MUSIC_STEP_DURATION * 3.7;
+        this.scheduleMusicNote(chordRoot, startTime, chordDuration, 0.032, 'sine');
+        this.scheduleMusicNote(chordRoot + chordThird, startTime, chordDuration, 0.026, 'sine');
+        this.scheduleMusicNote(chordRoot + 7, startTime, chordDuration, 0.022, 'sine');
+      }
+
+      if (patternStep % 2 === 0) {
+        const bassNote = patternStep % 4 === 0 ? chordRoot - 12 : chordRoot - 5;
+        this.scheduleMusicNote(bassNote, startTime, MUSIC_STEP_DURATION * 0.8, 0.06, 'square');
+      }
+
+      if (patternStep % 8 === 0) this.scheduleMusicPercussion(startTime, 'kick');
+      else if (patternStep % 4 === 2) this.scheduleMusicPercussion(startTime, 'click');
+
+      this.musicStep += 1;
+      this.musicNextStartTime += MUSIC_STEP_DURATION;
+    }
+
+    this.musicTimerId = window.setTimeout(this.scheduleBackgroundMusic, 250);
+  };
+
+  private startBackgroundMusic() {
+    const audioContext = this.audioContext;
+    const musicGain = this.musicGain;
+    if (!audioContext
+      || !musicGain
+      || audioContext.state !== 'running'
+      || !this.soundEnabled
+      || !this.running
+      || this.paused
+      || this.finished
+      || this.musicTimerId !== null) return;
+
+    const now = audioContext.currentTime;
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setValueAtTime(0.0001, now);
+    musicGain.gain.exponentialRampToValueAtTime(MUSIC_VOLUME, now + 0.65);
+    this.musicStep = 0;
+    this.musicNextStartTime = now + 0.04;
+    this.scheduleBackgroundMusic();
+  }
+
+  private stopBackgroundMusic(fadeOutDuration = 0) {
+    if (this.musicTimerId !== null) {
+      window.clearTimeout(this.musicTimerId);
+      this.musicTimerId = null;
+    }
+
+    const audioContext = this.audioContext;
+    const musicGain = this.musicGain;
+    if (!audioContext || !musicGain || audioContext.state === 'closed') {
+      this.musicSources.clear();
+      return;
+    }
+
+    const now = audioContext.currentTime;
+    const stopTime = now + fadeOutDuration;
+    const fadeEndTime = now + Math.max(0.01, fadeOutDuration);
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value), now);
+    musicGain.gain.exponentialRampToValueAtTime(0.0001, fadeEndTime);
+    this.musicSources.forEach((oscillator) => {
+      try {
+        oscillator.stop(stopTime);
+      } catch {
+        // 이미 종료된 소스는 ended 이벤트에서 정리돼요.
+      }
+    });
   }
 
   private async waitWhilePaused(token: number) {
@@ -1320,6 +1544,7 @@ export class GameEngine {
 
     if (document.hidden) {
       this.resumeAudioAfterVisibility = this.soundEnabled && audioContext.state === 'running';
+      this.stopBackgroundMusic();
       if (audioContext.state === 'running') {
         void audioContext.suspend().catch(() => {});
       }
@@ -1328,21 +1553,33 @@ export class GameEngine {
 
     if (this.resumeAudioAfterVisibility && this.soundEnabled && audioContext.state === 'suspended') {
       this.resumeAudioAfterVisibility = false;
-      void audioContext.resume().catch(() => {});
+      void audioContext.resume()
+        .then(() => this.startBackgroundMusic())
+        .catch(() => {});
     }
   };
 
-  private tone(frequency = 440, duration = 0.08) {
+  private tone(frequency = 440, duration = 0.08, delay = 0, volume = SOUND_EFFECT_VOLUME) {
     if (!this.soundEnabled) return;
     if (!this.audioContext || this.audioContext.state !== 'running') return;
     const oscillator = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.05, this.audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-    oscillator.connect(gain).connect(this.audioContext.destination);
-    oscillator.start();
-    oscillator.stop(this.audioContext.currentTime + duration);
+    const startTime = this.audioContext.currentTime + delay;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    oscillator.connect(gain).connect(this.effectsGain ?? this.audioMasterGain ?? this.audioContext.destination);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+  }
+
+  private playFinishFanfare() {
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      this.tone(frequency, 0.16, index * 0.11, 0.2);
+    });
+    [523.25, 659.25, 783.99].forEach((frequency) => {
+      this.tone(frequency, 0.42, 0.34, 0.14);
+    });
   }
 
   public async applyTheme(mode: ThemeMode) {
@@ -1405,11 +1642,14 @@ export class GameEngine {
 
     if (!enabled) {
       this.resumeAudioAfterVisibility = false;
+      this.stopBackgroundMusic();
       if (this.audioContext.state === 'running') {
         void this.audioContext.suspend().catch(() => {});
       }
     } else if (!document.hidden && this.audioContext.state === 'suspended') {
-      void this.audioContext.resume().catch(() => {});
+      void this.audioContext.resume()
+        .then(() => this.startBackgroundMusic())
+        .catch(() => {});
     }
   }
 
@@ -1451,6 +1691,9 @@ export class GameEngine {
     this.raceStartedAt = performance.now();
     this.racers.filter((racer) => racer.active).forEach((racer) => this.setExpression(racer.visual));
     this.running = true;
+    this.liveRankingSignature = '';
+    this.updateLiveRankings(this.racers.filter((racer) => racer.active));
+    this.startBackgroundMusic();
     this.options.onStatusUpdate('달리는 중');
     this.options.onProgressUpdate?.(0);
     await new Promise((resolve) => window.setTimeout(resolve, 500));
@@ -1460,6 +1703,7 @@ export class GameEngine {
   public pauseRace() {
     if (this.finished) return;
     this.paused = true;
+    this.stopBackgroundMusic();
     if (this.audioContext?.state === 'running') {
       void this.audioContext.suspend().catch(() => {});
     }
@@ -1469,11 +1713,14 @@ export class GameEngine {
     if (!this.paused) return;
     if (this.running) this.raceStartedAt = performance.now() - this.raceElapsed * 1000;
     this.paused = false;
-    void this.prepareAudio();
+    void this.prepareAudio().then((ready) => {
+      if (ready) this.startBackgroundMusic();
+    });
   }
 
   public resetRace() {
     this.countdownToken += 1;
+    this.stopBackgroundMusic();
     if (this.finishTimeoutId !== null) {
       window.clearTimeout(this.finishTimeoutId);
       this.finishTimeoutId = null;
@@ -1483,6 +1730,8 @@ export class GameEngine {
     this.paused = false;
     this.finished = false;
     this.raceElapsed = 0;
+    this.liveRankingSignature = '';
+    this.options.onPlayerLabelsUpdate([]);
     this.draggedRacer = null;
     if (this.mole) this.resetMole();
     this.randomizeRocks();
@@ -1555,7 +1804,7 @@ export class GameEngine {
               const now = performance.now();
               if (now - this.lastRacerImpactFeedbackAt >= 180) {
                 this.lastRacerImpactFeedbackAt = now;
-                this.tone(190, 0.045);
+                this.tone(190, 0.045, 0, 0.11);
                 triggerHaptic(this.hapticEnabled, 'basicWeak', 18);
               }
             }
@@ -1583,12 +1832,12 @@ export class GameEngine {
                   yoyo: true,
                   onComplete: () => { this.camera.position.x = 0; }
                 });
-                this.tone(120, 0.16);
+                this.tone(120, 0.16, 0, 0.16);
                 triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
               } else {
                 racer.gripElapsed += 0.12;
                 racer.body.applyImpulse({ x: direction * mass * 120, y: mass * 100, z: 0 }, true);
-                this.tone(155, 0.08);
+                this.tone(155, 0.08, 0, 0.14);
                 triggerHaptic(this.hapticEnabled, 'basicMedium', 25);
               }
             }
@@ -1620,6 +1869,7 @@ export class GameEngine {
 
   public destroy() {
     this.isDestroyed = true;
+    this.stopBackgroundMusic();
     this.themeLoadToken += 1;
     this.courseTexture?.dispose();
     this.courseTexture = undefined;
