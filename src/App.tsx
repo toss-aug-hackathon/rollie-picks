@@ -5,7 +5,7 @@ import { SetupScreen, ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
 import { PauseModal } from './components/PauseModal';
 import { ResultOverlay, RankingItem } from './components/ResultOverlay';
-import { CHARACTER_DATA, CharacterPreviewMap, GameEngine, CharacterKey, ThemeMode } from './game/engine';
+import { CharacterPreviewMap, GameEngine, CharacterKey, ThemeMode } from './game/engine';
 
 const APP_STATE_STORAGE_KEY = 'degul-pick:app-state:v1';
 const ANONYMOUS_KEY_STORAGE_KEY = 'degul-pick:anonymous-key';
@@ -18,26 +18,6 @@ const DEFAULT_PARTICIPANTS: ParticipantState[] = [
 
 const isThemeMode = (value: unknown): value is ThemeMode =>
   value === 'day' || value === 'night' || value === 'auto';
-
-const restoreParticipants = (value: unknown): ParticipantState[] => {
-  if (!Array.isArray(value)) return DEFAULT_PARTICIPANTS;
-
-  return DEFAULT_PARTICIPANTS.map((fallback, index) => {
-    const item = value[index];
-    if (!item || typeof item !== 'object') return fallback;
-
-    const candidate = item as Partial<ParticipantState>;
-    const characterKey = typeof candidate.characterKey === 'string'
-      && candidate.characterKey in CHARACTER_DATA
-      ? candidate.characterKey as CharacterKey
-      : fallback.characterKey;
-
-    return {
-      name: typeof candidate.name === 'string' ? candidate.name.slice(0, 12) : fallback.name,
-      characterKey,
-    };
-  });
-};
 
 export const App: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<'setup' | 'playing' | 'paused' | 'result'>('setup');
@@ -84,8 +64,6 @@ export const App: React.FC = () => {
       if (savedStateResult.status === 'fulfilled' && savedStateResult.value) {
         try {
           const saved = JSON.parse(savedStateResult.value) as Record<string, unknown>;
-          if (typeof saved.question === 'string') setQuestion(saved.question.slice(0, 30));
-          setParticipants(restoreParticipants(saved.participants));
           if (typeof saved.soundEnabled === 'boolean') setSoundEnabled(saved.soundEnabled);
           if (typeof saved.hapticEnabled === 'boolean') setHapticEnabled(saved.hapticEnabled);
           if (isThemeMode(saved.themeMode)) setThemeMode(saved.themeMode);
@@ -108,8 +86,6 @@ export const App: React.FC = () => {
 
     const timeoutId = window.setTimeout(() => {
       const appState = JSON.stringify({
-        question,
-        participants,
         soundEnabled,
         hapticEnabled,
         themeMode,
@@ -118,7 +94,7 @@ export const App: React.FC = () => {
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [storageReady, question, participants, soundEnabled, hapticEnabled, themeMode]);
+  }, [storageReady, soundEnabled, hapticEnabled, themeMode]);
 
   const [timerStr, setTimerStr] = useState('00:00.00');
   const [statusStr, setStatusStr] = useState('준비');
