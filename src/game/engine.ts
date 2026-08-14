@@ -1559,7 +1559,7 @@ export class GameEngine {
     });
   }
 
-  public async applyTheme(mode: ThemeMode) {
+  public async applyTheme(mode: ThemeMode, rerollCourseTexture = false) {
     const previousTheme = this.activeTheme;
     this.themeMode = mode;
     this.activeTheme = this.themeForMode(mode);
@@ -1591,7 +1591,7 @@ export class GameEngine {
     }
 
     if (!this.courseWall) return;
-    if (this.loadedCourseTheme === this.activeTheme) {
+    if (!rerollCourseTexture && this.loadedCourseTheme === this.activeTheme) {
       this.themeLoadToken += 1;
       return;
     }
@@ -1700,7 +1700,7 @@ export class GameEngine {
       window.clearTimeout(this.finishTimeoutId);
       this.finishTimeoutId = null;
     }
-    void this.applyTheme(this.themeMode);
+    void this.applyTheme(this.themeMode, true);
     this.running = false;
     this.paused = false;
     this.finished = false;

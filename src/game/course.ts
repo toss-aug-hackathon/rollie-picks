@@ -10,14 +10,26 @@ export interface CourseParams {
   screenToWorldY: (screenY: number) => number;
 }
 
-const COURSE_TEXTURE_URL = {
-  day: new URL('../assets/backgrounds/rolling-course-long-bleed-1350.webp', import.meta.url).href,
-  night: new URL('../assets/backgrounds/rolling-course-night-long-bleed-1350.webp', import.meta.url).href,
+const COURSE_TEXTURE_URLS = {
+  day: [
+    new URL('../assets/backgrounds/rolling-course-long-bleed-1350.webp', import.meta.url).href,
+    new URL('../assets/backgrounds/course-snow-day.webp', import.meta.url).href,
+    new URL('../assets/backgrounds/course-autumn-day.webp', import.meta.url).href,
+  ],
+  night: [
+    new URL('../assets/backgrounds/course-classic-night.webp', import.meta.url).href,
+    new URL('../assets/backgrounds/course-snow-night.webp', import.meta.url).href,
+    new URL('../assets/backgrounds/course-autumn-night.webp', import.meta.url).href,
+  ],
 };
+const FINISH_LINE_TEXTURE_URL = new URL('../assets/backgrounds/finish-line-wide.webp', import.meta.url).href;
 const COURSE_TEXTURE_ASPECT_RATIO = 1350 / 5277;
+const FINISH_LINE_ASPECT_RATIO = 1048 / 84;
 
 export async function loadCourseTexture(theme: 'day' | 'night') {
-  const texture = await new THREE.TextureLoader().loadAsync(COURSE_TEXTURE_URL[theme]);
+  const candidates = COURSE_TEXTURE_URLS[theme];
+  const textureUrl = candidates[Math.floor(Math.random() * candidates.length)];
+  const texture = await new THREE.TextureLoader().loadAsync(textureUrl);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
@@ -416,38 +428,15 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkers.renderOrder = -99;
   nightMarkers.visible = activeTheme === 'night';
 
-  const finishLineCanvas = document.createElement('canvas');
-  const finishColumns = 14;
-  const finishRows = 2;
-  const finishCellSize = 100;
-  finishLineCanvas.width = finishColumns * finishCellSize;
-  finishLineCanvas.height = finishRows * finishCellSize;
-  const finishLineContext = finishLineCanvas.getContext('2d');
-  if (!finishLineContext) {
-    throw new Error('Failed to create finish line canvas context');
-  }
-
-  for (let row = 0; row < finishRows; row += 1) {
-    for (let column = 0; column < finishColumns; column += 1) {
-      finishLineContext.fillStyle = (row + column) % 2 === 0 ? '#050505' : '#ffffff';
-      finishLineContext.fillRect(
-        column * finishCellSize,
-        row * finishCellSize,
-        finishCellSize,
-        finishCellSize
-      );
-    }
-  }
-
-  const finishTexture = new THREE.CanvasTexture(finishLineCanvas);
+  const finishTexture = new THREE.TextureLoader().load(FINISH_LINE_TEXTURE_URL);
   finishTexture.colorSpace = THREE.SRGBColorSpace;
   finishTexture.minFilter = THREE.LinearFilter;
   finishTexture.magFilter = THREE.LinearFilter;
   const finishLineWidth = width * 1.04;
-  const finishLineHeight = finishLineWidth / (finishColumns / finishRows);
+  const finishLineHeight = finishLineWidth / FINISH_LINE_ASPECT_RATIO;
   const finishLine = new THREE.Mesh(
     new THREE.PlaneGeometry(finishLineWidth, finishLineHeight),
-    new THREE.MeshBasicMaterial({ map: finishTexture, transparent: true, depthWrite: false })
+    new THREE.MeshBasicMaterial({ map: finishTexture, depthWrite: false })
   );
   finishLine.position.set(0, screenToWorldY(floorY), wallZ + 0.2);
 
