@@ -416,14 +416,35 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   nightMarkers.renderOrder = -99;
   nightMarkers.visible = activeTheme === 'night';
 
-  const finishTexture = new THREE.TextureLoader().load(new URL('../assets/backgrounds/finish-line.png', import.meta.url).href);
+  const finishLineCanvas = document.createElement('canvas');
+  const finishColumns = 14;
+  const finishRows = 2;
+  const finishCellSize = 100;
+  finishLineCanvas.width = finishColumns * finishCellSize;
+  finishLineCanvas.height = finishRows * finishCellSize;
+  const finishLineContext = finishLineCanvas.getContext('2d');
+  if (!finishLineContext) {
+    throw new Error('Failed to create finish line canvas context');
+  }
+
+  for (let row = 0; row < finishRows; row += 1) {
+    for (let column = 0; column < finishColumns; column += 1) {
+      finishLineContext.fillStyle = (row + column) % 2 === 0 ? '#050505' : '#ffffff';
+      finishLineContext.fillRect(
+        column * finishCellSize,
+        row * finishCellSize,
+        finishCellSize,
+        finishCellSize
+      );
+    }
+  }
+
+  const finishTexture = new THREE.CanvasTexture(finishLineCanvas);
   finishTexture.colorSpace = THREE.SRGBColorSpace;
   finishTexture.minFilter = THREE.LinearFilter;
   finishTexture.magFilter = THREE.LinearFilter;
-  finishTexture.wrapS = THREE.RepeatWrapping;
-  finishTexture.repeat.x = 1.5;
-  const finishLineWidth = width * 1.5;
-  const finishLineHeight = width * (74 / 481);
+  const finishLineWidth = width * 1.04;
+  const finishLineHeight = finishLineWidth / (finishColumns / finishRows);
   const finishLine = new THREE.Mesh(
     new THREE.PlaneGeometry(finishLineWidth, finishLineHeight),
     new THREE.MeshBasicMaterial({ map: finishTexture, transparent: true, depthWrite: false })
