@@ -34,13 +34,21 @@ const RACER_TOP_CLEARANCE = 50;
 const DRAG_VISUAL_Z_OFFSET = 40;
 const PLACEMENT_SETTLE_DURATION = 0.22;
 const FINISH_RESULT_DELAY = 800;
-const MASTER_VOLUME = 0.82;
-const SOUND_EFFECT_VOLUME = 0.13;
-const MUSIC_VOLUME = 0.58;
+const MASTER_VOLUME = 0.96;
+const SOUND_EFFECT_VOLUME = 0.22;
+const MUSIC_VOLUME = 0.86;
 const MUSIC_STEP_DURATION = 0.24;
 const MUSIC_SCHEDULE_AHEAD = 0.9;
-const MUSIC_MELODY = [72, 76, 79, 76, 74, 77, 81, 77, 71, 74, 79, 74, 72, 76, 83, 79];
-const MUSIC_CHORD_ROOTS = [48, 53, 55, 52];
+const MUSIC_MELODY = [
+  72, 76, 79, null, 74, 77, 81, 79,
+  71, 74, 79, 83, 79, 77, 74, null,
+  76, 79, 84, 83, 77, 81, 84, 81,
+  74, 79, 83, 86, 84, 81, 79, 76,
+];
+const MUSIC_CHORDS = [
+  [48, 4], [53, 4], [55, 4], [52, 3],
+  [50, 3], [55, 4], [57, 3], [52, 3],
+] as const;
 
 const PLACEMENT_PARTS = [
   { x: 0, y: 25, rx: 22, ry: 20 },
@@ -126,6 +134,7 @@ export class GameEngine {
   private hapticEnabled = true;
   private audioContext: AudioContext | undefined;
   private audioMasterGain: GainNode | undefined;
+  private effectsGain: GainNode | undefined;
   private musicGain: GainNode | undefined;
   private musicTimerId: number | null = null;
   private musicSources = new Set<OscillatorNode>();
@@ -1149,7 +1158,7 @@ export class GameEngine {
     this.finished = true;
     this.stopBackgroundMusic(0.35);
     this.setExpression(winner.visual, 'result');
-    this.tone(1040, 0.24);
+    this.playFinishFanfare();
     triggerHaptic(this.hapticEnabled, 'confetti', [55, 30, 80]);
     const active = this.racers.filter((racer) => racer.active);
     const rankings = active
@@ -1329,19 +1338,23 @@ export class GameEngine {
 
     const masterGain = audioContext.createGain();
     const compressor = audioContext.createDynamicsCompressor();
+    const effectsGain = audioContext.createGain();
     const musicGain = audioContext.createGain();
 
     masterGain.gain.value = MASTER_VOLUME;
-    compressor.threshold.value = -14;
+    compressor.threshold.value = -12;
     compressor.knee.value = 18;
     compressor.ratio.value = 4;
     compressor.attack.value = 0.003;
     compressor.release.value = 0.25;
+    effectsGain.gain.value = 1;
     musicGain.gain.value = 0.0001;
 
+    effectsGain.connect(masterGain);
     musicGain.connect(masterGain);
     masterGain.connect(compressor).connect(audioContext.destination);
     this.audioMasterGain = masterGain;
+    this.effectsGain = effectsGain;
     this.musicGain = musicGain;
   }
 
@@ -1380,6 +1393,32 @@ export class GameEngine {
     oscillator.stop(releaseTime + 0.02);
   }
 
+  private scheduleMusicPercussion(startTime: number, type: 'kick' | 'click') {
+    const audioContext = this.audioContext;
+    const musicGain = this.musicGain;
+    if (!audioContext || !musicGain || audioContext.state !== 'running') return;
+
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    const isKick = type === 'kick';
+    const duration = isKick ? 0.11 : 0.045;
+
+    oscillator.type = isKick ? 'sine' : 'triangle';
+    oscillator.frequency.setValueAtTime(isKick ? 130 : 1050, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(isKick ? 48 : 620, startTime + duration);
+    envelope.gain.setValueAtTime(isKick ? 0.09 : 0.04, startTime);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    oscillator.connect(envelope).connect(musicGain);
+    oscillator.addEventListener('ended', () => {
+      this.musicSources.delete(oscillator);
+      oscillator.disconnect();
+      envelope.disconnect();
+    }, { once: true });
+    this.musicSources.add(oscillator);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.02);
+  }
+
   private scheduleBackgroundMusic = () => {
     const audioContext = this.audioContext;
     if (!audioContext
@@ -1392,14 +1431,27 @@ export class GameEngine {
     while (this.musicNextStartTime < audioContext.currentTime + MUSIC_SCHEDULE_AHEAD) {
       const patternStep = this.musicStep % MUSIC_MELODY.length;
       const startTime = this.musicNextStartTime;
-      this.scheduleMusicNote(MUSIC_MELODY[patternStep], startTime, MUSIC_STEP_DURATION * 0.72, 0.045, 'triangle');
+      const melodyNote = MUSIC_MELODY[patternStep];
+      const [chordRoot, chordThird] = MUSIC_CHORDS[Math.floor(patternStep / 4)];
+      if (melodyNote !== null) {
+        const melodyDuration = patternStep % 8 === 6 ? MUSIC_STEP_DURATION * 1.55 : MUSIC_STEP_DURATION * 0.72;
+        this.scheduleMusicNote(melodyNote, startTime, melodyDuration, 0.075, 'triangle');
+      }
 
       if (patternStep % 4 === 0) {
-        const chordRoot = MUSIC_CHORD_ROOTS[Math.floor(patternStep / 4)];
         const chordDuration = MUSIC_STEP_DURATION * 3.7;
-        this.scheduleMusicNote(chordRoot, startTime, chordDuration, 0.022, 'sine');
-        this.scheduleMusicNote(chordRoot + 7, startTime, chordDuration, 0.014, 'sine');
+        this.scheduleMusicNote(chordRoot, startTime, chordDuration, 0.032, 'sine');
+        this.scheduleMusicNote(chordRoot + chordThird, startTime, chordDuration, 0.026, 'sine');
+        this.scheduleMusicNote(chordRoot + 7, startTime, chordDuration, 0.022, 'sine');
       }
+
+      if (patternStep % 2 === 0) {
+        const bassNote = patternStep % 4 === 0 ? chordRoot - 12 : chordRoot - 5;
+        this.scheduleMusicNote(bassNote, startTime, MUSIC_STEP_DURATION * 0.8, 0.06, 'square');
+      }
+
+      if (patternStep % 8 === 0) this.scheduleMusicPercussion(startTime, 'kick');
+      else if (patternStep % 4 === 2) this.scheduleMusicPercussion(startTime, 'click');
 
       this.musicStep += 1;
       this.musicNextStartTime += MUSIC_STEP_DURATION;
@@ -1484,17 +1536,27 @@ export class GameEngine {
     }
   };
 
-  private tone(frequency = 440, duration = 0.08) {
+  private tone(frequency = 440, duration = 0.08, delay = 0, volume = SOUND_EFFECT_VOLUME) {
     if (!this.soundEnabled) return;
     if (!this.audioContext || this.audioContext.state !== 'running') return;
     const oscillator = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(SOUND_EFFECT_VOLUME, this.audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-    oscillator.connect(gain).connect(this.audioMasterGain ?? this.audioContext.destination);
-    oscillator.start();
-    oscillator.stop(this.audioContext.currentTime + duration);
+    const startTime = this.audioContext.currentTime + delay;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    oscillator.connect(gain).connect(this.effectsGain ?? this.audioMasterGain ?? this.audioContext.destination);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+  }
+
+  private playFinishFanfare() {
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      this.tone(frequency, 0.16, index * 0.11, 0.2);
+    });
+    [523.25, 659.25, 783.99].forEach((frequency) => {
+      this.tone(frequency, 0.42, 0.34, 0.14);
+    });
   }
 
   public async applyTheme(mode: ThemeMode) {
@@ -1715,7 +1777,7 @@ export class GameEngine {
               const now = performance.now();
               if (now - this.lastRacerImpactFeedbackAt >= 180) {
                 this.lastRacerImpactFeedbackAt = now;
-                this.tone(190, 0.045);
+                this.tone(190, 0.045, 0, 0.11);
                 triggerHaptic(this.hapticEnabled, 'basicWeak', 18);
               }
             }
@@ -1743,12 +1805,12 @@ export class GameEngine {
                   yoyo: true,
                   onComplete: () => { this.camera.position.x = 0; }
                 });
-                this.tone(120, 0.16);
+                this.tone(120, 0.16, 0, 0.16);
                 triggerHaptic(this.hapticEnabled, 'error', [70, 30, 110]);
               } else {
                 racer.gripElapsed += 0.12;
                 racer.body.applyImpulse({ x: direction * mass * 120, y: mass * 100, z: 0 }, true);
-                this.tone(155, 0.08);
+                this.tone(155, 0.08, 0, 0.14);
                 triggerHaptic(this.hapticEnabled, 'basicMedium', 25);
               }
             }
