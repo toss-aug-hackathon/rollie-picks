@@ -36,7 +36,7 @@ export default defineConfig({
     withHomeButton: false,
   },
   webViewProps: {
-    type: 'game',
+    type: 'partner',
     bounces: false,
     pullToRefreshEnabled: false,
     overScrollMode: 'never',
