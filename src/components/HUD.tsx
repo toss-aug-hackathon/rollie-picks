@@ -9,7 +9,7 @@ interface HUDProps {
 }
 
 export const HUD: React.FC<HUDProps> = ({ question, status, progress, timer, onOpenMenu }) => {
-  const questionFontSize = Math.min(26, Math.max(15, 420 / Math.max(question.length, 1)));
+  const questionFontSize = Math.min(22, Math.max(14, 360 / Math.max(question.length, 1)));
 
   return (
     <div id="hud">

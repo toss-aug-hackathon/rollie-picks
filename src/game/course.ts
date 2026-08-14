@@ -420,9 +420,12 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   finishTexture.colorSpace = THREE.SRGBColorSpace;
   finishTexture.minFilter = THREE.LinearFilter;
   finishTexture.magFilter = THREE.LinearFilter;
+  finishTexture.wrapS = THREE.RepeatWrapping;
+  finishTexture.repeat.x = 1.5;
+  const finishLineWidth = width * 1.5;
   const finishLineHeight = width * (74 / 481);
   const finishLine = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, finishLineHeight),
+    new THREE.PlaneGeometry(finishLineWidth, finishLineHeight),
     new THREE.MeshBasicMaterial({ map: finishTexture, transparent: true, depthWrite: false })
   );
   finishLine.position.set(0, screenToWorldY(floorY), wallZ + 0.2);

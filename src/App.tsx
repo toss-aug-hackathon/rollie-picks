@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getAnonymousKey, setDeviceOrientation, setScreenAwakeMode, Storage } from '@apps-in-toss/web-framework';
+import {
+  getAnonymousKey,
+  setDeviceOrientation,
+  setIosSwipeGestureEnabled,
+  setScreenAwakeMode,
+  Storage,
+} from '@apps-in-toss/web-framework';
 import { GameCanvas } from './components/GameCanvas';
 import { SetupScreen, ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
@@ -34,6 +40,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     void setDeviceOrientation({ type: 'portrait' }).catch(() => {});
+    void setIosSwipeGestureEnabled({ isEnabled: false }).catch(() => {});
+    return () => {
+      void setIosSwipeGestureEnabled({ isEnabled: true }).catch(() => {});
+    };
   }, []);
 
   useEffect(() => {

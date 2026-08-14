@@ -40,6 +40,7 @@ export default defineConfig({
     bounces: false,
     pullToRefreshEnabled: false,
     overScrollMode: 'never',
+    allowsBackForwardNavigationGestures: false,
   },
   web: {
     host: devHost,
