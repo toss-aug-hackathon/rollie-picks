@@ -14,6 +14,7 @@ const COURSE_TEXTURE_URL = {
   day: new URL('../assets/backgrounds/rolling-course-long-bleed-1350.webp', import.meta.url).href,
   night: new URL('../assets/backgrounds/rolling-course-night-long-bleed-1350.webp', import.meta.url).href,
 };
+const COURSE_TEXTURE_ASPECT_RATIO = 1350 / 5277;
 
 export async function loadCourseTexture(theme: 'day' | 'night') {
   const texture = await new THREE.TextureLoader().loadAsync(COURSE_TEXTURE_URL[theme]);
@@ -354,7 +355,7 @@ export function createCourse({ width, courseHeight, startLineY, floorY, wallZ, a
   drawThemeMap(nightCtx, nightColors, true);
 
   const wall = new THREE.Mesh(
-    new THREE.PlaneGeometry(width * 1.5, canvas.height),
+    new THREE.PlaneGeometry(canvas.height * COURSE_TEXTURE_ASPECT_RATIO, canvas.height),
     new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
   );
   wall.position.set(0, screenToWorldY(canvas.height / 2), wallZ);
