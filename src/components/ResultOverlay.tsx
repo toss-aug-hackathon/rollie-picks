@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA } from '../game/engine';
+import {
+  CHARACTER_DATA,
+  type CharacterKey,
+  type CharacterPreviewMap,
+} from '../game/characters';
 import tiredBear from '../assets/characters/tired/bear.webp';
 import tiredRabbit from '../assets/characters/tired/rabbit.webp';
 import tiredCat from '../assets/characters/tired/cat.webp';

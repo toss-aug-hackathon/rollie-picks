@@ -211,12 +211,13 @@
     #setup .participant.is-disabled:hover, #setup .participant.is-disabled:focus-within { opacity: 0.95; filter: grayscale(0%); border-style: solid; }
     #setup #name-fields select option:disabled { color: #a1a1aa; }
     #setup #name-fields input:focus { box-shadow: inset 0 -4px 0 var(--setup-orange); }
-    #setup .settings { width: fit-content; max-width: 100%; min-height: 40px; align-self: center; display: flex; align-items: center; justify-content: center; gap: 14px; margin: 7px auto 8px; color: var(--setup-ink); font-size: 14px; font-weight: 800; line-height: 1; }
+    #setup .settings { width: fit-content; max-width: 100%; min-height: 40px; align-self: center; display: flex; align-items: center; justify-content: center; gap: 14px; margin: 7px auto 1px; color: var(--setup-ink); font-size: 14px; font-weight: 800; line-height: 1; }
     #setup .settings label { position: relative; top: 4px; height: 34px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
     #setup .settings input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 0; border: 2.5px solid var(--setup-ink); border-radius: 6px; background: #ffffff; box-shadow: 2px 2px 0 var(--setup-ink); cursor: pointer; display: inline-grid; place-content: center; transition: all 0.15s ease; }
     #setup .settings input:checked { background: var(--setup-orange) !important; border-color: var(--setup-ink) !important; box-shadow: 2px 2px 0 var(--setup-ink) !important; }
     #setup .settings input:checked::after { content: "✓"; color: #ffffff; font-size: 14px; font-weight: 900; line-height: 1; }
     #setup .settings select { height: 34px; padding: 4px 8px; border: 2px solid var(--setup-ink); border-radius: 8px; color: var(--setup-ink); background: #fff; font-weight: 800; line-height: 1; box-shadow: 2px 2px 0 var(--setup-ink); }
+    #setup .settings-note { margin: 0 auto 4px; color: #71717a; font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center; white-space: nowrap; }
     #setup .setup-footer { margin-top: auto; padding: 0 0 max(6px, var(--safe-bottom)); text-align: center; }
     #setup #setup-submit { width: 100%; padding: 12px; border-radius: 999px; color: #fff; background: var(--setup-orange); font-size: 16px; font-weight: 900; }
     #setup #setup-submit:not(:disabled):hover { background: var(--setup-orange-dark); }
@@ -259,6 +260,7 @@
     #game[data-theme="night"] #setup .character-step:hover:not(:disabled) { opacity: 1; color: #ffffff; }
     #game[data-theme="night"] #setup .settings { color: #f8fafc; }
     #game[data-theme="night"] #setup .settings select { color: #f8fafc; background: #1e293b; border-color: #475569; box-shadow: 2px 2px 0 #000; }
+    #game[data-theme="night"] #setup .settings-note { color: #cbd5e1; }
     #game[data-theme="night"] #setup .settings input { background: #1e293b; border-color: #64748b; box-shadow: 2px 2px 0 #000; }
     #game[data-theme="night"] #setup .settings input:checked { background: #f97316 !important; border-color: #f8fafc !important; box-shadow: 2px 2px 0 #000 !important; }
     #game[data-theme="night"] #setup .settings input:checked::after { color: #ffffff; font-size: 14px; font-weight: 900; }
@@ -353,7 +355,8 @@
       #setup .mini-character-preview span { padding: 2px 7px; font-size: 10px; }
       #setup .character-step { width: 34px; height: 34px; font-size: 31px; }
       #setup .settings, #setup .settings label { min-height: 32px; }
-      #setup .settings { margin: 8px auto 4px; font-size: 12px; }
+      #setup .settings { margin: 6px auto 0; font-size: 12px; }
+      #setup .settings-note { margin-bottom: 2px; font-size: 9px; line-height: 1.1; }
       #setup #setup-submit { padding-block: 8px; font-size: 14px; }
       .overlay { padding: 28px 10px 10px; }
       .card, .menu-card { padding: 18px 16px 16px; }
