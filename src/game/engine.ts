@@ -137,7 +137,7 @@ export class GameEngine {
   private musicStep = 0;
   private musicNextStartTime = 0;
   private resumeAudioAfterVisibility = false;
-  private themeMode: ThemeMode = 'day';
+  private themeMode: ThemeMode = 'auto';
   private activeTheme: 'day' | 'night' = 'day';
 
   private courseWall?: THREE.Mesh;

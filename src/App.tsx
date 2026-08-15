@@ -35,7 +35,7 @@ export const App: React.FC = () => {
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticEnabled, setHapticEnabled] = useState(true);
-  const [themeMode, setThemeMode] = useState<ThemeMode>('day');
+  const [themeMode, setThemeMode] = useState<ThemeMode>('auto');
   const [mapReady, setMapReady] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
 
