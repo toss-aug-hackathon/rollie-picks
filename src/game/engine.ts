@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { gsap } from 'gsap';
 import { createCourse, loadCourseTexture } from './course';
+import {
+  CHARACTER_DATA,
+  type CharacterKey,
+  type CharacterPreviewMap,
+  type ThemeMode,
+} from './characters';
 import { triggerHaptic } from '../utils/feedback';
 
 const WIDTH = 390;
@@ -59,10 +65,6 @@ const PLACEMENT_PARTS = [
   { x: 10, y: -32, rx: 10, ry: 18 }
 ];
 
-export type CharacterKey = 'bear' | 'rabbit' | 'cat' | 'duck' | 'turtle' | 'dog' | 'fox' | 'panda' | 'pig' | 'hamster';
-export type ThemeMode = 'auto' | 'day' | 'night';
-export type CharacterPreviewMap = Partial<Record<CharacterKey | `${CharacterKey}-result`, string>>;
-
 export interface RacerInfo {
   name: string;
   characterKey: CharacterKey;
@@ -84,19 +86,6 @@ export interface GameEngineOptions {
   onFinish: (winnerName: string, winnerChar: CharacterKey, winnerSpeech: string, rankings: any[]) => void;
   onCharacterPreviewsReady?: (previews: CharacterPreviewMap) => void;
 }
-
-export const CHARACTER_DATA: Record<CharacterKey, { name: string; icon: string; preview: string; modelType: CharacterKey }> = {
-  bear: { name: '곰', icon: '🐻', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'bear' },
-  rabbit: { name: '토끼', icon: '🐰', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'rabbit' },
-  cat: { name: '고양이', icon: '🐱', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'cat' },
-  duck: { name: '오리', icon: '🐥', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'duck' },
-  turtle: { name: '거북이', icon: '🐢', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'turtle' },
-  dog: { name: '강아지', icon: '🐶', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'dog' },
-  fox: { name: '여우', icon: '🦊', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'fox' },
-  panda: { name: '판다', icon: '🐼', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'panda' },
-  pig: { name: '돼지', icon: '🐷', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'pig' },
-  hamster: { name: '햄스터', icon: '🐹', preview: 'assets/rolling-course-BVgPItdr.webp', modelType: 'hamster' }
-};
 
 const COLORS: Record<CharacterKey, number> = {
   bear: 0xc6a27f,

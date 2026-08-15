@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { CharacterKey, CharacterPreviewMap, GameEngine, GameEngineOptions, LiveRankingItem, ThemeMode } from '../game/engine';
+import type { GameEngine, GameEngineOptions, LiveRankingItem } from '../game/engine';
+import type { CharacterKey, CharacterPreviewMap, ThemeMode } from '../game/characters';
 
 interface GameCanvasProps {
   onEngineReady: (engine: GameEngine) => void;
@@ -39,15 +40,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const engineReadyRef = useRef(false);
   const themeModeRef = useRef(themeMode);
   const participantsRef = useRef(participants);
+  const soundEnabledRef = useRef(soundEnabled);
+  const hapticEnabledRef = useRef(hapticEnabled);
   themeModeRef.current = themeMode;
   participantsRef.current = participants;
+  soundEnabledRef.current = soundEnabled;
+  hapticEnabledRef.current = hapticEnabled;
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
     let cancelled = false;
+    let engine: GameEngine | null = null;
 
     const options: GameEngineOptions = {
-      canvas: canvasRef.current,
+      canvas,
       onTimerUpdate,
       onStatusUpdate,
       onProgressUpdate,
@@ -57,33 +65,44 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       onCharacterPreviewsReady
     };
 
-    const engine = new GameEngine(options);
-    engineRef.current = engine;
     onThemeLoadingChange(true);
-    void engine.setThemeMode(themeModeRef.current);
 
-    engine.init()
-      .then(async () => {
+    const initializeEngine = async () => {
+      try {
+        const { GameEngine } = await import('../game/engine');
+        if (cancelled) return;
+
+        engine = new GameEngine(options);
+        engineRef.current = engine;
+        void engine.setThemeMode(themeModeRef.current);
+
+        await engine.init();
         await engine.setThemeMode(themeModeRef.current);
         if (cancelled) return;
-        // Initialization can finish after the user has already filled and
-        // submitted the setup form. Always use the latest participant state.
+
+        // Initialization can finish after the user has already changed the
+        // setup. Always use the latest participant and feedback settings.
         engine.setParticipants(participantsRef.current);
+        engine.setSoundEnabled(soundEnabledRef.current);
+        engine.setHapticEnabled(hapticEnabledRef.current);
         engineReadyRef.current = true;
         onThemeLoadingChange(false);
         onEngineReady(engine);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           onThemeLoadingChange(false);
           onEngineError();
         }
-      });
+      }
+    };
+
+    void initializeEngine();
 
     return () => {
       cancelled = true;
       engineReadyRef.current = false;
-      engine.destroy();
+      engine?.destroy();
+      if (engineRef.current === engine) engineRef.current = null;
     };
   }, []);
 

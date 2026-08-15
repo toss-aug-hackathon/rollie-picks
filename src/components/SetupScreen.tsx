@@ -1,6 +1,11 @@
 import React from 'react';
 import { useToast } from '@toss/tds-mobile';
-import { CharacterKey, CharacterPreviewMap, CHARACTER_DATA, ThemeMode } from '../game/engine';
+import {
+  CHARACTER_DATA,
+  type CharacterKey,
+  type CharacterPreviewMap,
+  type ThemeMode,
+} from '../game/characters';
 import { triggerHaptic } from '../utils/feedback';
 
 export interface ParticipantState {

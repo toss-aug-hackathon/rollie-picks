@@ -7,11 +7,12 @@ import {
   Storage,
 } from '@apps-in-toss/web-framework';
 import { GameCanvas } from './components/GameCanvas';
-import { SetupScreen, ParticipantState } from './components/SetupScreen';
+import { SetupScreen, type ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
 import { PauseModal } from './components/PauseModal';
-import { ResultOverlay, RankingItem } from './components/ResultOverlay';
-import { CharacterPreviewMap, GameEngine, CharacterKey, LiveRankingItem, ThemeMode } from './game/engine';
+import { ResultOverlay, type RankingItem } from './components/ResultOverlay';
+import type { GameEngine, LiveRankingItem } from './game/engine';
+import type { CharacterKey, CharacterPreviewMap, ThemeMode } from './game/characters';
 
 const APP_STATE_STORAGE_KEY = 'degul-pick:app-state:v1';
 const ANONYMOUS_KEY_STORAGE_KEY = 'degul-pick:anonymous-key';
