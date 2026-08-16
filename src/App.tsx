@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
+  closeView,
+  graniteEvent,
   getAnonymousKey,
   setDeviceOrientation,
   setIosSwipeGestureEnabled,
   setScreenAwakeMode,
   Storage,
 } from '@apps-in-toss/web-framework';
+import { ConfirmDialog } from '@toss/tds-mobile';
 import { GameCanvas } from './components/GameCanvas';
 import { SetupScreen, type ParticipantState } from './components/SetupScreen';
 import { HUD } from './components/HUD';
@@ -29,6 +32,7 @@ const isThemeMode = (value: unknown): value is ThemeMode =>
 export const App: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<'setup' | 'playing' | 'paused' | 'result'>('setup');
   const [engineError, setEngineError] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   
   const [question, setQuestion] = useState('');
   const [participants, setParticipants] = useState<ParticipantState[]>(DEFAULT_PARTICIPANTS);
@@ -38,6 +42,31 @@ export const App: React.FC = () => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('auto');
   const [mapReady, setMapReady] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
+
+  const handleConfirmExit = async () => {
+    setIsExitModalOpen(false);
+    try {
+      await closeView();
+    } catch {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.close();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribeBack = graniteEvent.addEventListener?.('backEvent', {
+      onEvent: () => {
+        setIsExitModalOpen(true);
+      },
+    });
+
+    return () => {
+      unsubscribeBack?.();
+    };
+  }, []);
 
   useEffect(() => {
     void setDeviceOrientation({ type: 'portrait' }).catch(() => {});
@@ -325,6 +354,22 @@ export const App: React.FC = () => {
         onReplay={handleReplayResult}
         onEditPlayers={handleEditPlayersResult}
         characterPreviews={characterPreviews}
+      />
+
+      <ConfirmDialog
+        open={isExitModalOpen}
+        onClose={() => setIsExitModalOpen(false)}
+        title="데굴픽을 종료할까요?"
+        cancelButton={
+          <ConfirmDialog.CancelButton onClick={() => setIsExitModalOpen(false)}>
+            닫기
+          </ConfirmDialog.CancelButton>
+        }
+        confirmButton={
+          <ConfirmDialog.ConfirmButton onClick={handleConfirmExit}>
+            종료하기
+          </ConfirmDialog.ConfirmButton>
+        }
       />
     </main>
   );
