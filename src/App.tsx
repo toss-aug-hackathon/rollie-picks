@@ -57,18 +57,6 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const unsubscribeBack = graniteEvent.addEventListener?.('backEvent', {
-      onEvent: () => {
-        setIsExitModalOpen(true);
-      },
-    });
-
-    return () => {
-      unsubscribeBack?.();
-    };
-  }, []);
-
-  useEffect(() => {
     void setDeviceOrientation({ type: 'portrait' }).catch(() => {});
     void setIosSwipeGestureEnabled({ isEnabled: false }).catch(() => {});
     return () => {
@@ -241,6 +229,26 @@ export const App: React.FC = () => {
     setPlacementMode(false);
     setActiveScreen('setup');
   };
+
+  useEffect(() => {
+    const unsubscribeBack = graniteEvent.addEventListener?.('backEvent', {
+      onEvent: () => {
+        if (activeScreen === 'setup') {
+          setIsExitModalOpen(true);
+        } else if (activeScreen === 'playing') {
+          handleOpenMenu();
+        } else if (activeScreen === 'paused') {
+          handleResumeMenu();
+        } else {
+          handleEditPlayersResult();
+        }
+      },
+    });
+
+    return () => {
+      unsubscribeBack?.();
+    };
+  }, [activeScreen]);
 
   return (
     <main id="game" data-mode="choice" aria-label="데굴이가 골라줘 선택 도우미">
