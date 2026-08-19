@@ -231,19 +231,24 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const unsubscribeBack = graniteEvent.addEventListener?.('backEvent', {
-      onEvent: () => {
-        if (activeScreen === 'setup') {
-          setIsExitModalOpen(true);
-        } else if (activeScreen === 'playing') {
-          handleOpenMenu();
-        } else if (activeScreen === 'paused') {
-          handleResumeMenu();
-        } else {
-          handleEditPlayersResult();
-        }
-      },
-    });
+    let unsubscribeBack: (() => void) | undefined;
+    try {
+      unsubscribeBack = graniteEvent.addEventListener('backEvent', {
+        onEvent: () => {
+          if (activeScreen === 'setup') {
+            setIsExitModalOpen(true);
+          } else if (activeScreen === 'playing') {
+            handleOpenMenu();
+          } else if (activeScreen === 'paused') {
+            handleResumeMenu();
+          } else {
+            handleEditPlayersResult();
+          }
+        },
+      });
+    } catch {
+      // The native back event is unavailable in a regular browser.
+    }
 
     return () => {
       unsubscribeBack?.();
@@ -355,6 +360,7 @@ export const App: React.FC = () => {
 
       <ResultOverlay
         isOpen={activeScreen === 'result'}
+        question={question}
         winnerName={winnerName}
         winnerCharKey={winnerCharKey}
         winnerSpeech={winnerSpeech}
