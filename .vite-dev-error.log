@@ -1,1 +1,111 @@
-$ vite --host 0.0.0.0
+[2m오후 7:37:10[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:37:10[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mError[22m: ReactNativeWebView is not available in browser environment
+[39m > NativeWindow.postMessage node_modules/@apps-in-toss/web-bridge/dist/index.js:24:12
+ > node_modules/@apps-in-toss/web-bridge/dist/index.js:97:17
+ > Object.addEventListener node_modules/@apps-in-toss/web-bridge/dist/index.js:699:33
+ > src/App.tsx:234:60
+    232 |  
+    233 |    useEffect(() => {
+    234 |      const unsubscribeBack = graniteEvent.addEventListener?.('backEvent', {
+        |                                                              ^
+    235 |        onEvent: () => {
+    236 |          if (activeScreen === 'setup') {
+ > Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25989:19
+ > runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:871:29
+ > commitHookEffectListMount node_modules/react-dom/cjs/react-dom-client.development.js:13249:28
+ > commitHookPassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:13336:10
+ > commitPassiveMountOnFiber node_modules/react-dom/cjs/react-dom-client.development.js:15484:12
+ > recursivelyTraversePassiveMountEffects node_modules/react-dom/cjs/react-dom-client.development.js:15439:10
+
+[2m오후 7:37:10[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <App> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+[2m오후 7:38:16[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:38:18[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:41:17[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:43:29[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:46:24[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:49:14[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)
+[2m오후 7:50:35[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mSafeAreaInsets를 가져오는 중 에러가 발생했습니다: Error: getSafeAreaInsets is not a constant handler
+    at NativeWindow.getConstant (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:239:9)
+    at http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:303:23
+    at getSafeAreaInsets (http://localhost:5173/node_modules/.vite/deps/dist-web-DePXV87w.js?v=011a5cc3:665:9)
+    at http://localhost:5173/node_modules/.vite/deps/@toss_tds-mobile-ait.js?v=011a5cc3:1262:32
+    at Object.react_stack_bottom_frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:12900:13)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:850:66)
+    at commitHookEffectListMount (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6615:153)
+    at commitHookPassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:6650:55)
+    at commitPassiveMountOnFiber (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7616:22)
+    at recursivelyTraversePassiveMountEffects (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=011a5cc3:7604:5)

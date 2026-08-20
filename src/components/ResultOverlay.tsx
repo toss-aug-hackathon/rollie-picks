@@ -34,6 +34,7 @@ export interface RankingItem {
 
 interface ResultOverlayProps {
   isOpen: boolean;
+  question: string;
   winnerName: string;
   winnerCharKey: CharacterKey;
   winnerSpeech: string;
@@ -97,6 +98,7 @@ const pickReplayCharacters = (count: number, previous: CharacterKey[]) => {
 
 export const ResultOverlay: React.FC<ResultOverlayProps> = ({
   isOpen,
+  question,
   winnerName,
   winnerCharKey,
   winnerSpeech,
@@ -185,6 +187,7 @@ export const ResultOverlay: React.FC<ResultOverlayProps> = ({
           </div>
         </div>
 
+        <p className="result-question"><span>Q.</span>{question}</p>
         <h2 id="result-title">{winnerName}</h2>
 
         <div className="result-character">
