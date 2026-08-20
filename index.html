@@ -84,11 +84,11 @@
     .story-marquee-track { display: flex; width: max-content; padding: 8px 0; animation: story-marquee-scroll 12s linear infinite; will-change: transform; }
     .story-marquee-track span { width: max-content; padding-right: 24px; }
     @keyframes story-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-    .result-question { display: -webkit-box; margin: 0 0 9px; padding: 10px 12px; overflow: hidden; border: 2px solid var(--ink); border-radius: 8px; background: #fff7dc; font-size: 23px; font-weight: 800; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .result-question { display: -webkit-box; margin: 0 0 9px; padding: 10px 12px; overflow: hidden; border: 2px solid var(--ink); border-radius: 8px; background: #fff7dc; font-size: 16px; font-weight: 800; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     .result-question span { margin-right: 5px; color: var(--carrot); font-weight: 900; }
     .hero-title, .card h2, .card > p, #result-speech, #result-copy, button { word-break: keep-all; overflow-wrap: break-word; }
     #result-title { white-space: pre-line; }
-    #result .card:not(.replay-card) > #result-title { max-width: calc(100% - 28px); margin-left: 28px; font-size: 32px; }
+    #result .card:not(.replay-card) > #result-title { max-width: calc(100% - 28px); margin-left: 28px; font-size: 22px; }
     #result .card:not(.replay-card) > #result-title::before { content: 'A.'; margin-right: 8px; color: var(--carrot); }
     .card h2 { max-width: 19rem; margin: 0 0 8px; font-size: 26px; font-weight: 900; line-height: 1.1; letter-spacing: -.04em; }
     .primary { width: 100%; padding: 15px 14px; border: 3px solid var(--ink); border-radius: 12px; color: #fff; background: var(--carrot); box-shadow: 4px 4px 0 var(--ink); font-size: 16px; font-weight: 900; transition: transform 120ms ease, box-shadow 120ms ease; }
@@ -98,7 +98,7 @@
     .feedback-carousel { display: block; margin: 5px 0 7px; border-block: 3px dashed var(--ink); }
     #result-copy { min-height: 38px; margin: 0; padding: 6px 8px; display: grid; place-items: center; color: #3f3f46; text-align: center; font-size: 13px; font-weight: 900; line-height: 1.25; overflow-wrap: anywhere; }
     .result-character { display: grid; place-items: center; margin: 3px 0; }
-    #result-character-image { width: 144px; height: 144px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.15)); }
+    #result-character-image { width: 112px; height: 112px; object-fit: contain; filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.15)); }
     #result-list { margin: 6px 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
     #result-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; padding: 4px 8px; border: 3px solid var(--ink); border-radius: 10px; background: #f2dfa7; box-shadow: 3px 3px 0 var(--ink); font-size: 13px; font-weight: 800; }
     #result-list li:nth-child(1) { background: var(--carrot); color: #fff; }
@@ -368,7 +368,20 @@
       #setup #setup-submit { padding-block: 8px; font-size: 14px; }
       .overlay { padding: 28px 10px 10px; }
       .card, .menu-card { padding: 18px 16px 16px; }
-      #result .card:not(.replay-card) { height: auto; }
+      #result.overlay { padding: 12px 8px 8px; }
+      #result .card:not(.replay-card) { height: auto; padding: 12px 12px 10px; }
+      #result .card:not(.replay-card) .story-marquee { margin: -12px -12px 5px; }
+      #result .card:not(.replay-card) .story-marquee-track { padding-block: 5px; }
+      #result .result-question { margin-bottom: 8px; padding: 6px 8px; font-size: 15px; line-height: 1.2; }
+      #result .card:not(.replay-card) > #result-title { max-width: calc(100% - 24px); margin: 0 0 7px 24px; font-size: 21px; }
+      #result-character-image { width: 104px; height: 104px; }
+      #result .feedback-carousel { margin: 4px 0 6px; }
+      #result-copy { min-height: 30px; padding: 4px 6px; font-size: 12px; }
+      #result-list { margin: 6px 0 8px; gap: 4px; }
+      #result-list li { padding: 2px 6px; border-width: 2px; font-size: 13px; }
+      #result .rank-character, #result .rank-character img { width: 30px; height: 30px; }
+      #result .rank-badge { min-width: 38px; padding: 2px 5px; }
+      #result .actions button { padding: 8px 7px; }
       #result .replay-card { height: min(350px, calc(100% - 12px)); }
       #result .replay-card:has(.replay-pile[data-count="3"]) { height: min(365px, calc(100% - 12px)); }
       #result .replay-card:has(.replay-pile[data-count="4"]) { height: min(380px, calc(100% - 12px)); }
