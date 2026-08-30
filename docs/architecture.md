@@ -61,15 +61,15 @@ flowchart LR
 - 영속 데이터: 앱인토스 `Storage`에 저장되는 비게임 설정과 익명 키 해시
 - 메모리 데이터: 질문, 참가자, 화면 상태, 타이머, 진행률, 순위, Three.js/Rapier 객체
 - 번들 자산: 코스 배경, 장애물, 피곤함·울음 결과 이미지
-- 외부 런타임 요청: `index.html`의 Google Fonts CSS와 `granite.config.ts`의 앱 브랜드 아이콘 URL이 있습니다. 가용하지 않으면 폰트는 로컬 시스템 대체 글꼴로 표시되며, 브랜드 아이콘 사용 경로는 앱인토스 환경에 의존합니다.
+- 외부 런타임 요청: `index.html`의 Google Fonts CSS가 있습니다. 가용하지 않으면 폰트는 로컬 시스템 대체 글꼴로 표시됩니다.
 - 인증·인가: 구현 없음
 - 애플리케이션 API·데이터베이스: 구현 없음
 
 ## 빌드와 배포 경계
 
 - `vite build`가 `dist`에 정적 웹 산출물을 생성합니다.
-- Granite 설정은 앱 이름, 브랜드, WebView 속성, 개발 호스트와 `dist` 출력 위치를 정의합니다.
-- `ait build`와 `ait deploy` 스크립트가 있지만, 설정의 존재만으로 현재 배포 상태를 확인할 수는 없습니다.
+- `apps-in-toss.config.ts`는 앱 이름, 브랜드 색상, WebView 속성과 `dist` 출력 위치를 정의합니다.
+- `npm run build`는 `vite build` 후 `ait build`를 실행하고, `ait deploy`는 별도 배포 명령으로 유지합니다. 설정의 존재만으로 현재 배포 상태를 확인할 수는 없습니다.
 - CI에는 빌드·테스트 품질 게이트가 없고 Discord 병합 알림 workflow만 존재합니다.
 
 ## 현재 제약

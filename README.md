@@ -40,7 +40,7 @@
 
 ## 기술 스택
 
-- React 19, TypeScript 7, Vite 8
+- React 18, TypeScript 7, Vite 8
 - Three.js: WebGL 장면과 캐릭터 렌더링
 - Rapier 3D: 중력, 충돌, 관절 기반 레이스 물리
 - GSAP: 캐릭터 배치 보정 애니메이션
@@ -54,22 +54,10 @@ Vite 8의 요구사항에 맞춰 Node.js `20.19+` 또는 `22.12+`가 필요합�
 git clone https://github.com/toss-aug-hackathon/rollie-picks.git
 cd rollie-picks
 npm ci
-npm run dev:web
-```
-
-브라우저에서 터미널에 표시된 주소로 접속합니다. 기본 Vite 포트는 `5173`입니다.
-
-앱인토스 개발 환경은 다음 명령으로 실행합니다.
-
-```bash
 npm run dev
 ```
 
-`granite.config.ts`는 기본적으로 사용 가능한 로컬 IPv4 주소를 개발 호스트로 선택합니다. 특정 주소가 필요하면 실행 시에만 `AIT_DEV_HOST`를 지정할 수 있습니다.
-
-```bash
-AIT_DEV_HOST=127.0.0.1 npm run dev
-```
+브라우저에서 터미널에 표시된 주소로 접속합니다. 기본 Vite 포트는 `5173`이며, 화면 우측 하단의 AIT Devtools에서 앱인토스 SDK 동작을 테스트할 수 있습니다.
 
 별도의 필수 환경 변수나 `.env` 파일은 없습니다.
 
@@ -77,12 +65,12 @@ AIT_DEV_HOST=127.0.0.1 npm run dev
 
 | 명령 | 역할 |
 | --- | --- |
-| `npm run dev` | Granite 앱인토스 개발 서버 실행 |
+| `npm run dev` | AIT Devtools가 적용된 Vite 개발 서버 실행 |
 | `npm run dev:web` | Vite 웹 개발 서버 실행 |
-| `npm run build` | 웹 프로덕션 빌드 |
-| `npm test` | 현재 구성된 검증 명령으로 웹 빌드 실행 |
+| `npm run build` | 웹 프로덕션 빌드 후 앱인토스 번들 생성 |
+| `npm test` | 현재 구성된 검증 명령으로 앱인토스 번들까지 빌드 |
 | `npm run preview` | 빌드 결과 로컬 미리보기 |
-| `npm run build:ait` | 웹 빌드 후 앱인토스 번들 생성 |
+| `npm run build:ait` | `npm run build`와 동일한 호환 명령 |
 | `npm run deploy` | 앱인토스 배포 실행 |
 
 `deploy`는 외부 배포 상태를 변경하므로 필요한 계정과 권한을 확인한 뒤 실행해야 합니다.

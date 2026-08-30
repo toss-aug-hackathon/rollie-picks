@@ -62,5 +62,5 @@ flowchart TD
 ## 제한과 근거
 
 - 별도 URL 경로나 deep link는 없습니다. 진입점은 [`src/main.tsx`](../src/main.tsx) 하나입니다.
-- 브라우저 뒤로가기 기반 화면 전환은 없고, 앱인토스 설정에서 WebView의 뒤로가기 제스처도 비활성화합니다([`granite.config.ts`](../granite.config.ts)).
+- 브라우저 뒤로가기 기반 화면 전환은 없고, 앱인토스 설정에서 WebView의 뒤로가기 제스처도 비활성화합니다([`apps-in-toss.config.ts`](../apps-in-toss.config.ts)).
 - 화면 설계 근거는 [`App.tsx`](../src/App.tsx)와 각 [`components`](../src/components) 구현이며, `docs/superpowers`의 과거 설계 문서는 현재 구조 판정의 우선 근거로 사용하지 않았습니다.
